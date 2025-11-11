@@ -9,13 +9,13 @@ import numpy as np
 from Detection.face_detector import FaceDetector 
 from Recognition.embedding_extractor import EmbeddingExtractor
 # [SỬA] Import class KNNRecognizer
-from Recognition.knn_recognizer import KNNRecognizer
+from Recognition.torch_recognizer import TorchRecognizer
 
 # --- Cấu hình ---
 DATASET_PATH = r"D:\AI-facial-recognition-system-for-roll-call\dataset"
 # [SỬA] Quay lại 2 file model
-KNN_MODEL_PATH = "models/knn_model.pkl"
-LE_PATH = "models/label_encoder.pickle"
+MODEL_PATH = "models/face_prototypes.pth"
+
 # -----------------
 
 # 1. Khởi tạo model YOLO
@@ -31,7 +31,7 @@ extractor = EmbeddingExtractor(model_name='vggface2')
 
 # 3. Khởi tạo model Recognition (KNN)
 # [SỬA] Dùng class KNNRecognizer, n_neighbors=5 (hoặc 1, 3 tùy bạn)
-recognizer = KNNRecognizer(n_neighbors=5)
+recognizer = TorchRecognizer()
 
 # (Phần code trích xuất embedding từ dataset giữ nguyên... 
 # ...từ dòng "Chuẩn bị dữ liệu" đến "print(f'-> Đã xử lý {image_count} ảnh cho {person_name}.')")
@@ -95,8 +95,7 @@ else:
         
     # Lưu model
     # [SỬA] Lưu 2 file
-    recognizer.save(KNN_MODEL_PATH, LE_PATH)
+    recognizer.save(MODEL_PATH)
     
     print("\n--- HOÀN TẤT HUẤN LUYỆN ---")
-    print(f"Đã lưu KNN model tại: {KNN_MODEL_PATH}")
-    print(f"Đã lưu Label Encoder tại: {LE_PATH}")
+    print(f"Đã lưu prototypes (PyTorch) tại: {MODEL_PATH}")

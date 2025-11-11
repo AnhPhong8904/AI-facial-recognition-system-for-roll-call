@@ -7,17 +7,17 @@ import numpy as np
 from Detection.face_detector import FaceDetector 
 from Recognition.embedding_extractor import EmbeddingExtractor 
 # [SỬA] Import class KNNRecognizer
-from Recognition.knn_recognizer import KNNRecognizer 
+from Recognition.torch_recognizer import TorchRecognizer
 
 # --- Cấu hình ---
 # [SỬA] Quay lại 2 file model
-KNN_MODEL_PATH = r"D:\AI-facial-recognition-system-for-roll-call\AI_model\models\knn_model.pkl"
-LE_PATH = r"D:\AI-facial-recognition-system-for-roll-call\AI_model\models\label_encoder.pickle"
+MODEL_PATH = r"D:\AI-facial-recognition-system-for-roll-call\AI_model\models\face_prototypes.pth"
+
 
 # [SỬA] Đây là NGƯỠNG KHOẢNG CÁCH
 # Với L2/FaceNet, ngưỡng này thường quanh 0.9 - 1.0. 
 # 0.9 là một điểm khởi đầu tốt (chặt chẽ hơn)
-DISTANCE_THRESHOLD = 0.7
+SIMILARITY_THRESHOLD = 0.6
 
 # 1. Tải model YOLO
 print("Đang tải model YOLO (Detection)...")
@@ -28,16 +28,13 @@ print("Đang tải model Embedding (PyTorch FaceNet)...")
 extractor = EmbeddingExtractor(model_name='vggface2')
 
 # 3. Tải model Recognition (KNN)
-print("Đang tải model Recognition (KNN)...")
-# [SỬA] Dùng class KNNRecognizer
-recognizer = KNNRecognizer()
+print("Đang tải model Recognition (PyTorch Prototypes)...")
+recognizer = TorchRecognizer()
 try:
-    # [SỬA] Tải 2 file
-    recognizer.load(KNN_MODEL_PATH, LE_PATH)
-    print("Tải model KNN và Label Encoder thành công.")
+    recognizer.load(MODEL_PATH)
+    print("Tải model (prototypes) thành công.")
 except FileNotFoundError:
-    print(f"LỖI: Không tìm thấy file model tại '{KNN_MODEL_PATH}' hoặc '{LE_PATH}'.")
-    print("Bạn đã chạy 'train_recognizer.py' (phiên bản mới) chưa?")
+    print(f"LỖI: Không tìm thấy file model tại '{MODEL_PATH}'.")
     exit()
 
 print("[INFO] Đã tải xong model. Bắt đầu chạy webcam/video...")
@@ -71,16 +68,15 @@ while True:
             continue
             
         cropped_face = frame[y1:y2, x1:x2]
-        embedding = extractor.get_embedding(cropped_face)
-
+        embedding = extractor.get_embedding(cropped_face) # Lấy embedding (numpy)
         # --- Bước 3: Nhận diện (KNN + Distance) ---
         if embedding is not None:
-            # [SỬA] Hàm predict giờ trả về (tên, khoảng_cách)
-            name, distance = recognizer.predict(embedding, distance_threshold=DISTANCE_THRESHOLD)
+            # [SỬA] Hàm predict giờ trả về (tên, độ_tương_đồng)
+            name, similarity = recognizer.predict(embedding, similarity_threshold=SIMILARITY_THRESHOLD)
             
             # --- Bước 4: Hiển thị kết quả ---
             # Hiển thị khoảng cách (distance)
-            text = f"{name} (Dist: {distance:.2f})"
+            text = f"{name} (Sim: {similarity:.2f})"
             color = (0, 255, 0) if name != "Unknown" else (0, 0, 255)
             
             # (Phần code vẽ vời giữ nguyên)
@@ -90,7 +86,7 @@ while True:
             cv2.putText(frame, text, (x1, y1 - 15), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
         
-    cv2.imshow("Face Recognition (KNN + Distance)", frame)
+    cv2.imshow("Face Recognition (PyTorch Cosine-Sim)", frame)
 
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
