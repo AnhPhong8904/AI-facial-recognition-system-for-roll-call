@@ -17,7 +17,7 @@ LE_PATH = r"D:\AI-facial-recognition-system-for-roll-call\AI_model\models\label_
 # [SỬA] Đây là NGƯỠNG KHOẢNG CÁCH
 # Với L2/FaceNet, ngưỡng này thường quanh 0.9 - 1.0. 
 # 0.9 là một điểm khởi đầu tốt (chặt chẽ hơn)
-DISTANCE_THRESHOLD = 0.6
+DISTANCE_THRESHOLD = 0.7
 
 # 1. Tải model YOLO
 print("Đang tải model YOLO (Detection)...")
@@ -48,6 +48,8 @@ cap = cv2.VideoCapture(0) # Dùng webcam
 if not cap.isOpened():
     print("Lỗi: Không thể mở webcam/video.")
     exit()
+
+cv2.namedWindow("Face Recognition (KNN + Distance)", cv2.WINDOW_NORMAL)
 
 while True:
     ret, frame = cap.read()
