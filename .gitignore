@@ -1,0 +1,9 @@
+checkpoints
+__pycache__
+*.jpg
+*.png
+*.jpeg
+*.pt
+*mp4
+*avi
+*__pycache__

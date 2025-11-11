@@ -48,35 +48,35 @@ class FaceDetector:
         return frame
 
 
-if __name__ == "__main__":
-    cap = cv2.VideoCapture(0)
-    detector = FaceDetector()
+# if __name__ == "__main__":
+#     cap = cv2.VideoCapture(r"D:\AI-facial-recognition-system-for-roll-call\video\theanh.mp4")
+#     detector = FaceDetector()
 
-    cv2.namedWindow("Face Detection", cv2.WINDOW_NORMAL)
+#     cv2.namedWindow("Face Detection", cv2.WINDOW_NORMAL)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+#     while True:
+#         ret, frame = cap.read()
+#         if not ret:
+#             break
 
-        frame = cv2.flip(frame, 1)
-        frame = detector.process_frame(frame)
+#         frame = cv2.flip(frame, 1)
+#         frame = detector.process_frame(frame)
 
-        height, width = frame.shape[:2]
-        win_w, win_h = cv2.getWindowImageRect("Face Detection")[2:]
-        scale = min(win_w / width, win_h / height)
-        new_w, new_h = int(width * scale), int(height * scale)
-        resized = cv2.resize(frame, (new_w, new_h))
-        top = (win_h - new_h) // 2
-        bottom = (win_h - new_h + 1) // 2
-        left = (win_w - new_w) // 2
-        right = (win_w - new_w + 1) // 2
+#         height, width = frame.shape[:2]
+#         win_w, win_h = cv2.getWindowImageRect("Face Detection")[2:]
+#         scale = min(win_w / width, win_h / height)
+#         new_w, new_h = int(width * scale), int(height * scale)
+#         resized = cv2.resize(frame, (new_w, new_h))
+#         top = (win_h - new_h) // 2
+#         bottom = (win_h - new_h + 1) // 2
+#         left = (win_w - new_w) // 2
+#         right = (win_w - new_w + 1) // 2
 
-        canvas = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(0, 0, 0))
-        cv2.imshow("Face Detection", canvas)
+#         canvas = cv2.copyMakeBorder(resized, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(0, 0, 0))
+#         cv2.imshow("Face Detection", canvas)
 
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
+#         if cv2.waitKey(1) & 0xFF == 27:
+#             break
 
-    cap.release()
-    cv2.destroyAllWindows()
+#     cap.release()
+#     cv2.destroyAllWindows()
