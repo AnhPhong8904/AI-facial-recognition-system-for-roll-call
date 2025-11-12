@@ -49,7 +49,7 @@ class FaceDetector:
 
 
 # if __name__ == "__main__":
-#     cap = cv2.VideoCapture(r"D:\AI-facial-recognition-system-for-roll-call\video\theanh.mp4")
+#     cap = cv2.VideoCapture(r"E:\AI-facial-recognition-system-for-roll-call\video\bacgiang.mp4")
 #     detector = FaceDetector()
 
 #     cv2.namedWindow("Face Detection", cv2.WINDOW_NORMAL)

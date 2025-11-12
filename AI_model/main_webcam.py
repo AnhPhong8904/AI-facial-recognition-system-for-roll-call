@@ -11,7 +11,7 @@ from Recognition.torch_recognizer import TorchRecognizer
 
 # --- Cấu hình ---
 # [SỬA] Quay lại 2 file model
-MODEL_PATH = r"D:\AI-facial-recognition-system-for-roll-call\AI_model\models\face_prototypes.pth"
+MODEL_PATH = r"E:\AI-facial-recognition-system-for-roll-call\AI_model\models\face_prototypes.pth"
 
 
 # [SỬA] Đây là NGƯỠNG KHOẢNG CÁCH
@@ -39,7 +39,8 @@ except FileNotFoundError:
 
 print("[INFO] Đã tải xong model. Bắt đầu chạy webcam/video...")
 
-cap = cv2.VideoCapture(0) # Dùng webcam
+video_path = r"E:\AI-facial-recognition-system-for-roll-call\video\theanh.mp4"
+cap = cv2.VideoCapture(video_path) # Dùng webcam
 # cap = cv2.VideoCapture(r"D:\AI-facial-recognition-system-for-roll-call\video\haiduong.mp4") # Dùng video
 
 if not cap.isOpened():

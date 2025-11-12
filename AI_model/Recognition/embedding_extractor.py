@@ -14,7 +14,7 @@ class EmbeddingExtractor:
         print(f"Đang tải model FaceNet (PyTorch) pre-trained trên {model_name}...")
         
         # 1. Thiết lập device (GPU nếu có)
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         print(f'Đang chạy trên device: {self.device}')
 
         # 2. Tải model

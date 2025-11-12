@@ -12,7 +12,7 @@ from Recognition.embedding_extractor import EmbeddingExtractor
 from Recognition.torch_recognizer import TorchRecognizer
 
 # --- Cấu hình ---
-DATASET_PATH = r"D:\AI-facial-recognition-system-for-roll-call\dataset"
+DATASET_PATH = r"E:\AI-facial-recognition-system-for-roll-call\dataset"
 # [SỬA] Quay lại 2 file model
 MODEL_PATH = "models/face_prototypes.pth"
 
