@@ -5,10 +5,18 @@ from PyQt5.QtWidgets import (
     QGridLayout, QVBoxLayout, QHBoxLayout, QFrame
 )
 from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QPropertyAnimation, QRect
+from PyQt5.QtCore import (
+    Qt, QTimer, QDateTime, QSize, 
+    QPropertyAnimation, QRect, pyqtSignal # Thêm pyqtSignal
+)
 
+# Đổi tên class để nhất quán, bạn có thể giữ tên cũ
+# nhưng nếu giữ tên cũ thì phải sửa ở home_controller.py
+class HomeWindow(QWidget): 
+    
+    # 1. Thêm tín hiệu (signal)
+    logout_signal = pyqtSignal()
 
-class AttendanceSystemUI(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -38,7 +46,7 @@ class AttendanceSystemUI(QWidget):
         clock_layout.setSpacing(10)
         
         clock_icon = QLabel()
-        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png"
+        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\clock.png"
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             clock_icon.setPixmap(clock_pixmap)
@@ -65,22 +73,23 @@ class AttendanceSystemUI(QWidget):
         admin_layout.setSpacing(8)
         
         admin_icon = QLabel()
-        admin_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\user.png"
+        admin_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\user.png"
         if os.path.exists(admin_icon_path):
             admin_pixmap = QPixmap(admin_icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             admin_icon.setPixmap(admin_pixmap)
         
-        admin_text = QLabel("ADMIN")
-        admin_text.setStyleSheet("color: white; font-size: 14px; font-weight: bold;")
+        # 2. Thay đổi ở đây:
+        self.admin_text = QLabel("ADMIN") # Đổi tên thành self.admin_text
+        self.admin_text.setStyleSheet("color: white; font-size: 14px; font-weight: bold;")
         
         admin_layout.addWidget(admin_icon)
-        admin_layout.addWidget(admin_text)
+        admin_layout.addWidget(self.admin_text)
 
         logout_button = QPushButton(" Đăng xuất")
         logout_button.setCursor(Qt.PointingHandCursor)
         logout_button.setFixedHeight(35)
         
-        logout_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\logout.png"
+        logout_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\logout.png"
         if os.path.exists(logout_icon_path):
             logout_button.setIcon(QIcon(logout_icon_path))
             logout_button.setIconSize(QSize(20, 20))
@@ -100,7 +109,8 @@ class AttendanceSystemUI(QWidget):
                 border: 1px solid rgba(255, 255, 255, 0.5);
             }
         """)
-        logout_button.clicked.connect(self.logout_clicked)
+        # 3. Thay đổi ở đây:
+        logout_button.clicked.connect(self.logout_clicked) # Giữ nguyên
 
         top_layout.addWidget(clock_widget)
         top_layout.addStretch(1)
@@ -118,7 +128,7 @@ class AttendanceSystemUI(QWidget):
 
         # ===== ẢNH NỀN =====
         self.background = QLabel(content_container)
-        self.bg_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\logo2.jpg"
+        self.bg_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\logo2.jpg"
         if os.path.exists(self.bg_path):
             self.pixmap = QPixmap(self.bg_path)
             self.background.setPixmap(self.pixmap)
@@ -139,14 +149,14 @@ class AttendanceSystemUI(QWidget):
         grid.setContentsMargins(50, 50, 50, 50)
 
         buttons = [
-            ("Sinh viên", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\female-graduate-student.png"),
-            ("Nhận diện", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\electronic-id.png"),
-            ("Điểm danh", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\checkmark.png"),
-            ("Môn học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\book.png"),
-            ("Thống kê", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\dashboard.png"),
-            ("Giảng viên", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\teacher.png"),
-            ("Buổi học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\training.png"),
-            ("Xem ảnh", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\image.png"),
+            ("Sinh viên", r"E:\AI-facial-recognition-system-for-roll-call\system\img\female-graduate-student.png"),
+            ("Nhận diện", r"E:\AI-facial-recognition-system-for-roll-call\system\img\electronic-id.png"),
+            ("Điểm danh", r"E:\AI-facial-recognition-system-for-roll-call\system\img\checkmark.png"),
+            ("Môn học", r"E:\AI-facial-recognition-system-for-roll-call\system\img\book.png"),
+            ("Thống kê", r"E:\AI-facial-recognition-system-for-roll-call\system\img\dashboard.png"),
+            ("Giảng viên", r"E:\AI-facial-recognition-system-for-roll-call\system\img\teacher.png"),
+            ("Buổi học", r"E:\AI-facial-recognition-system-for-roll-call\system\img\training.png"),
+            ("Xem ảnh", r"E:\AI-facial-recognition-system-for-roll-call\system\img\image.png"),
         ]
 
         positions = [(i, j) for i in range(2) for j in range(4)]
@@ -223,12 +233,15 @@ class AttendanceSystemUI(QWidget):
         btn.enterEvent = lambda e: on_enter()
         btn.leaveEvent = lambda e: on_leave()
 
+    # 4. Thay đổi ở đây:
     def logout_clicked(self):
-        print("Đăng xuất thành công!")
+        print("Gửi tín hiệu đăng xuất...")
+        self.logout_signal.emit() # Gửi tín hiệu thay vì chỉ in
+    
+    # 5. Thêm hàm mới:
+    def set_user_role(self, role_name):
+        """Hàm này được controller gọi để set tên vai trò trên UI"""
+        self.admin_text.setText(role_name.upper())
 
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = AttendanceSystemUI()
-    window.show()
-    sys.exit(app.exec_())
+# 6. Bỏ khối if __name__ == "__main__":
+# (Vì file này sẽ được chạy từ main.py)
