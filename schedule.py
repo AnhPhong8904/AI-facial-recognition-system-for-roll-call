@@ -1,70 +1,61 @@
 import sys
 import os
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QLineEdit, QPushButton, QComboBox,
-    QHBoxLayout, QVBoxLayout, QGridLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QGroupBox, QDateEdit, QTimeEdit, QFrame, QMessageBox
+    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout,
+    QLineEdit, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, 
+    QGroupBox, QFrame, QMessageBox, QTimeEdit, QDateEdit
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QDate, QTime
-from PyQt5.QtGui import QFont, QPixmap, QIcon
+from PyQt5.QtGui import QFont, QIcon, QPixmap
 
 class ScheduleWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Quản lý thông tin Lịch học")
-        self.setGeometry(100, 100, 1200, 700) # Cho cửa sổ rộng hơn
+        self.setWindowTitle("Quản lý thông tin Lịch học (Buổi học)")
+        self.setGeometry(100, 100, 1000, 600)
         self.setStyleSheet("background-color: white; font-family: Arial;")
+        self.initUI()
 
-        main_layout = QVBoxLayout()
-        main_layout.addWidget(self.header_ui())
-        main_layout.addWidget(self.content_ui())
-        self.setLayout(main_layout)
+    def initUI(self):
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(25, 10, 25, 10)
+        main_layout.setSpacing(15)
 
-        # Cập nhật thời gian
-        self.update_time()
-        timer = QTimer(self)
-        timer.timeout.connect(self.update_time)
-        timer.start(1000)
-
-    # ---------------- Header ----------------
-    def header_ui(self):
+        # ===== HEADER =====
         header = QFrame()
-        header.setStyleSheet("background-color: #1e40af; color: white; border-radius: 8px;")
         header.setFixedHeight(80)
-        layout = QHBoxLayout()
-        layout.setContentsMargins(25, 10, 25, 10)
+        header.setStyleSheet("background-color: #1e40af; color: white; border-radius: 8px;")
+        header_layout = QHBoxLayout(header)
+        header_layout.setContentsMargins(25, 10, 25, 10)
 
-        # Icon Đồng hồ
+        # Đồng hồ
         clock_icon = QLabel()
-        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png" 
+        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png"
         
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             clock_icon.setPixmap(clock_pixmap)
-            clock_icon.setStyleSheet("margin-right: 5px;")
-
-        time_layout = QHBoxLayout()
-        time_layout.setContentsMargins(0,0,0,0)
-        time_layout.addWidget(clock_icon)
+        clock_icon.setStyleSheet("margin-right: 5px;")
 
         self.time_label = QLabel()
         self.time_label.setFont(QFont("Arial", 10, QFont.Bold))
-        time_layout.addWidget(self.time_label)
         
-        layout.addLayout(time_layout)
+        time_layout = QHBoxLayout()
+        time_layout.setContentsMargins(0,0,0,0)
+        time_layout.addWidget(clock_icon)
+        time_layout.addWidget(self.time_label)
 
-        title = QLabel("Quản lý thông tin Lịch học") # Đổi tiêu đề
-        title.setFont(QFont("Arial", 14, QFont.Bold))
-        title.setAlignment(Qt.AlignCenter)
-        layout.addWidget(title, stretch=1)
+        title_label = QLabel("Quản lý thông tin Lịch học (Buổi học)")
+        title_label.setStyleSheet("color: white; font-weight: bold; font-size: 20px;")
+        title_label.setAlignment(Qt.AlignCenter)
 
-        # Nút Quay lại
-        self.back_btn = QPushButton(" Quay lại") 
+        # Nút quay lại
+        self.back_btn = QPushButton(" Quay lại")
         back_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\back.png"
         if os.path.exists(back_icon_path):
             self.back_btn.setIcon(QIcon(back_icon_path))
             self.back_btn.setIconSize(QSize(20, 20))
-            
+
         self.back_btn.setStyleSheet("""
             QPushButton {
                 background-color: rgba(255, 255, 255, 0.2); color: white;
@@ -76,105 +67,107 @@ class ScheduleWindow(QWidget):
                 border: 1px solid rgba(255, 255, 255, 0.5);
             }
         """)
+
+        header_layout.addLayout(time_layout)
+        header_layout.addStretch()
+        header_layout.addWidget(title_label)
+        header_layout.addStretch()
+        header_layout.addWidget(self.back_btn)
         
-        layout.addWidget(self.back_btn)
-        header.setLayout(layout)
-        return header
+        main_layout.addWidget(header)
 
-    # ---------------- Content ----------------
-    def content_ui(self):
-        content = QWidget()
+        # ===== CONTENT (ĐÃ SỬA ĐỔI) =====
         content_layout = QHBoxLayout()
-
-        # Left panel - Thông tin lịch học (ĐÃ THIẾT KẾ LẠI)
-        info_group = QGroupBox("Thông tin lịch học")
+        
+        # --- LEFT PANEL ---
+        info_group = QGroupBox("Thông tin buổi học")
         info_group.setFont(QFont("Arial", 10, QFont.Bold))
         form_layout = QGridLayout()
-        form_layout.setHorizontalSpacing(10)
+        form_layout.setContentsMargins(15, 15, 15, 15)
+        form_layout.setHorizontalSpacing(12)
         form_layout.setVerticalSpacing(10)
-
-        # Dùng một QLineEdit ẩn để lưu ID_BUOI khi chọn từ bảng
-        self.hidden_id_buoi = QLineEdit()
         
-        # Hàng 0: Chọn Lớp học
+        self.inputs = {} # Lưu trữ các input
+
+        # === Form fields (Đã sửa đổi cho khớp CSDL) ===
+        # 1. ComboBox (Hộp chọn) cho Lớp học
         form_layout.addWidget(QLabel("Chọn Lớp học:"), 0, 0)
         self.combo_lophoc = QComboBox()
-        self.combo_lophoc.setToolTip("Chọn Lớp học (Lớp tín chỉ) từ danh sách")
+        self.combo_lophoc.setToolTip("Chọn lớp học (đã tạo) để thêm buổi học")
         form_layout.addWidget(self.combo_lophoc, 0, 1)
+        self.inputs["lophoc"] = self.combo_lophoc
+        
+        # 2. Các trường chỉ xem (Tên môn, Tên GV)
+        form_layout.addWidget(QLabel("Tên môn học:"), 1, 0)
+        self.label_ten_mon = QLineEdit("[Tên môn học]")
+        self.label_ten_mon.setReadOnly(True)
+        form_layout.addWidget(self.label_ten_mon, 1, 1)
 
-        # Hàng 1: Tên Môn học (Chỉ xem)
-        form_layout.addWidget(QLabel("Tên Môn học:"), 1, 0)
-        self.line_ten_mon = QLineEdit()
-        self.line_ten_mon.setReadOnly(True)
-        self.line_ten_mon.setStyleSheet("background-color: #f0f0f0;")
-        form_layout.addWidget(self.line_ten_mon, 1, 1)
+        form_layout.addWidget(QLabel("Tên giảng viên:"), 2, 0)
+        self.label_ten_gv = QLineEdit("[Tên giảng viên]")
+        self.label_ten_gv.setReadOnly(True)
+        form_layout.addWidget(self.label_ten_gv, 2, 1)
 
-        # Hàng 2: Tên Giảng viên (Chỉ xem)
-        form_layout.addWidget(QLabel("Tên Giảng viên:"), 2, 0)
-        self.line_ten_gv = QLineEdit()
-        self.line_ten_gv.setReadOnly(True)
-        self.line_ten_gv.setStyleSheet("background-color: #f0f0f0;")
-        form_layout.addWidget(self.line_ten_gv, 2, 1)
-
-        # Hàng 3: Ngày học
+        # 3. Các trường nhập liệu
         form_layout.addWidget(QLabel("Ngày học:"), 3, 0)
         self.date_ngay_hoc = QDateEdit()
         self.date_ngay_hoc.setDisplayFormat("dd-MM-yyyy")
         self.date_ngay_hoc.setCalendarPopup(True)
         self.date_ngay_hoc.setDate(QDate.currentDate())
         form_layout.addWidget(self.date_ngay_hoc, 3, 1)
+        self.inputs["ngay_hoc"] = self.date_ngay_hoc
 
-        # Hàng 4: Giờ bắt đầu
         form_layout.addWidget(QLabel("Giờ bắt đầu:"), 4, 0)
         self.time_bat_dau = QTimeEdit()
         self.time_bat_dau.setDisplayFormat("HH:mm")
+        self.time_bat_dau.setTime(QTime(7, 0)) # Mặc định 7:00 AM
         form_layout.addWidget(self.time_bat_dau, 4, 1)
-        
-        # Hàng 5: Giờ kết thúc
+        self.inputs["gio_bat_dau"] = self.time_bat_dau
+
         form_layout.addWidget(QLabel("Giờ kết thúc:"), 5, 0)
         self.time_ket_thuc = QTimeEdit()
         self.time_ket_thuc.setDisplayFormat("HH:mm")
+        self.time_ket_thuc.setTime(QTime(9, 30)) # Mặc định 9:30 AM
         form_layout.addWidget(self.time_ket_thuc, 5, 1)
+        self.inputs["gio_ket_thuc"] = self.time_ket_thuc
         
-        # Hàng 6: Phòng học
         form_layout.addWidget(QLabel("Phòng học:"), 6, 0)
         self.line_phong_hoc = QLineEdit()
+        self.line_phong_hoc.setPlaceholderText("Ví dụ: P.301")
         form_layout.addWidget(self.line_phong_hoc, 6, 1)
+        self.inputs["phong_hoc"] = self.line_phong_hoc
         
-        # Hàng 7: Ghi chú
-        form_layout.addWidget(QLabel("Ghi chú:"), 7, 0)
-        self.line_ghi_chu = QLineEdit()
-        form_layout.addWidget(self.line_ghi_chu, 7, 1)
+        # ID Buổi học (ẩn, chỉ dùng để Cập nhật/Xóa)
+        self.hidden_id_buoi = QLineEdit()
+        self.hidden_id_buoi.setVisible(False)
+        self.inputs["id_buoi"] = self.hidden_id_buoi
 
-        # Nút chức năng
+        # === Buttons ===
         btn_layout = QHBoxLayout()
-        self.btn_add = QPushButton("Thêm lịch học")
+        self.btn_add = QPushButton("Thêm mới")
         self.btn_update = QPushButton("Cập nhật")
         self.btn_delete = QPushButton("Xoá")
         self.btn_refresh = QPushButton("Làm mới")
-
+        
         for btn in [self.btn_add, self.btn_update, self.btn_delete, self.btn_refresh]:
             btn.setStyleSheet("background-color: #1e40af; color: white; padding: 6px 10px; border-radius: 6px; font-weight: bold;")
+            btn_layout.addWidget(btn)
 
-        btn_layout.addWidget(self.btn_add)
-        btn_layout.addWidget(self.btn_update)
-        btn_layout.addWidget(self.btn_delete)
-        btn_layout.addWidget(self.btn_refresh)
-
-        form_layout.addLayout(btn_layout, 8, 0, 1, 2)
+        form_layout.addLayout(btn_layout, 7, 0, 1, 2)
         info_group.setLayout(form_layout)
-
-        # Right panel - Bảng dữ liệu và tìm kiếm
-        right_layout = QVBoxLayout()
+        
+        # --- RIGHT PANEL ---
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
 
         search_layout = QHBoxLayout()
         self.search_by = QComboBox()
-        self.search_by.addItems(["Mã lớp", "Tên môn", "Tên giảng viên"]) # Sửa tiêu chí
+        self.search_by.addItems(["Tên môn học", "Tên giảng viên", "Mã lớp"])
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("Nhập từ khóa...")
         self.btn_search = QPushButton("Tìm kiếm")
         self.btn_all = QPushButton("Xem tất cả")
-
+        
         for btn in [self.btn_search, self.btn_all]:
             btn.setStyleSheet("background-color: #1e40af; color: white; padding: 6px 10px; border-radius: 6px; font-weight: bold;")
 
@@ -184,12 +177,12 @@ class ScheduleWindow(QWidget):
         search_layout.addWidget(self.btn_search)
         search_layout.addWidget(self.btn_all)
 
+        # === Table (Đã sửa đổi) ===
         self.table = QTableWidget()
-        # Sửa đổi cột cho khớp
-        self.table.setColumnCount(7) 
+        self.table.setColumnCount(7) # Sửa số cột
         self.table.setHorizontalHeaderLabels([
             "ID Buổi", "Ngày học", "Giờ BĐ", "Giờ KT", 
-            "Phòng học", "Mã Lớp", "Ghi chú"
+            "Phòng học", "Mã Lớp", "Tên Môn học"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setStyleSheet("background-color: white;")
@@ -199,71 +192,70 @@ class ScheduleWindow(QWidget):
         right_layout.addLayout(search_layout)
         right_layout.addWidget(self.table)
 
-        # Add panels to content
-        content_layout.addWidget(info_group, 3)
-        content_layout.addLayout(right_layout, 5)
-        content.setLayout(content_layout)
+        # ===== FINAL LAYOUT =====
+        content_layout.addWidget(info_group, 3) # Panel trái
+        content_layout.addWidget(right_panel, 5) # Panel phải
 
-        return content
+        main_layout.addLayout(content_layout) 
+        
+        # Timer for clock
+        timer = QTimer(self)
+        timer.timeout.connect(self.update_time)
+        timer.start(1000)
+        self.update_time()
 
-    # ---------------- Update Time ----------------
     def update_time(self):
         now = QDateTime.currentDateTime()
         self.time_label.setText(now.toString("hh:mm:ss AP\ndd-MM-yyyy"))
-        
+
     # ==========================================================
     # HÀM TIỆN ÍCH (HELPER FUNCTIONS)
-    # Controller sẽ gọi các hàm này
     # ==========================================================
-
-    def populate_lophoc_combo(self, classes_data):
+    
+    def populate_lophoc_combo(self, lophoc_data):
         """
         Điền danh sách Lớp học vào ComboBox.
-        classes_data: list of tuples (ID_LOP, MA_LOP, TEN_LOP)
+        lophoc_data: list of tuples (ID_LOP, MA_LOP, TEN_MON)
         """
-        self.combo_lophoc.clear()
-        self.combo_lophoc.addItem("--- Chọn Lớp học ---", None) # Mục rỗng
-        if classes_data:
-            for id_lop, ma_lop, ten_lop in classes_data:
-                self.combo_lophoc.addItem(f"{ma_lop} - {ten_lop}", id_lop)
-    
+        combo = self.inputs["lophoc"]
+        combo.clear()
+        combo.addItem("--- Chọn Lớp học ---", None) # Thêm mục rỗng
+        if lophoc_data:
+            for id_lop, ma_lop, ten_mon in lophoc_data:
+                combo.addItem(f"{ma_lop} ({ten_mon})", id_lop) # Hiển thị Mã Lớp (Tên môn), lưu ID_LOP
+
     def set_class_details(self, details):
-        """Điền chi tiết (Tên môn, Tên GV) vào ô chỉ xem"""
+        """Điền chi tiết Lớp học (Tên môn, Tên GV) vào các ô ReadOnly"""
         if details:
-            ten_mon, ten_gv = details
-            self.line_ten_mon.setText(ten_mon if ten_mon else "N/A")
-            self.line_ten_gv.setText(ten_gv if ten_gv else "N/A")
+            self.label_ten_mon.setText(details.get("ten_mon", "[N/A]"))
+            self.label_ten_gv.setText(details.get("ten_gv", "[N/A]"))
         else:
-            self.line_ten_mon.clear()
-            self.line_ten_gv.clear()
+            self.label_ten_mon.setText("[---]")
+            self.label_ten_gv.setText("[---]")
 
     def get_form_data(self):
         """Lấy dữ liệu từ form trả về một dictionary"""
-        data = {
-            "id_buoi": self.hidden_id_buoi.text(), # Lấy ID ẩn
-            "id_lop": self.combo_lophoc.currentData(), # Lấy ID_LOP từ ComboBox
-            "ngay_hoc": self.date_ngay_hoc.date().toString("yyyy-MM-dd"),
-            "gio_bd": self.time_bat_dau.time().toString("HH:mm"),
-            "gio_kt": self.time_ket_thuc.time().toString("HH:mm"),
-            "phong_hoc": self.line_phong_hoc.text(),
-            "ghi_chu": self.line_ghi_chu.text()
+        return {
+            "id_lop": self.inputs["lophoc"].currentData(), # Lấy ID_LOP từ ComboBox
+            "ngay_hoc": self.inputs["ngay_hoc"].date().toString("yyyy-MM-dd"),
+            "gio_bat_dau": self.inputs["gio_bat_dau"].time().toString("HH:mm"),
+            "gio_ket_thuc": self.inputs["gio_ket_thuc"].time().toString("HH:mm"),
+            "phong_hoc": self.inputs["phong_hoc"].text(),
+            "id_buoi": self.inputs["id_buoi"].text() # Lấy ID buổi học (đang ẩn)
         }
-        return data
 
     def clear_form(self):
         """Xóa trắng các ô nhập liệu về trạng thái mặc định"""
-        self.hidden_id_buoi.clear()
-        self.combo_lophoc.setCurrentIndex(0) # Về mục "Chọn Lớp học"
-        self.line_ten_mon.clear()
-        self.line_ten_gv.clear()
-        self.date_ngay_hoc.setDate(QDate.currentDate())
-        self.time_bat_dau.setTime(QTime(7, 0)) # Set giờ mặc định
-        self.time_ket_thuc.setTime(QTime(9, 0))
-        self.line_phong_hoc.clear()
-        self.line_ghi_chu.clear()
+        self.inputs["lophoc"].setCurrentIndex(0) # Về mục "Chọn Lớp học"
+        self.label_ten_mon.setText("[---]")
+        self.label_ten_gv.setText("[---]")
+        self.inputs["ngay_hoc"].setDate(QDate.currentDate())
+        self.inputs["gio_bat_dau"].setTime(QTime(7, 0))
+        self.inputs["gio_ket_thuc"].setTime(QTime(9, 30))
+        self.inputs["phong_hoc"].clear()
+        self.inputs["id_buoi"].clear()
         
-        # Bật lại ComboBox nếu nó bị tắt (khi Cập nhật)
-        self.combo_lophoc.setEnabled(True)
+        self.inputs["lophoc"].setEnabled(True) # Cho phép chọn lại lớp
         self.table.clearSelection()
 
     def populate_table(self, data):
@@ -275,18 +267,20 @@ class ScheduleWindow(QWidget):
         self.table.setRowCount(len(data))
         for row_index, row_data in enumerate(data):
             for col_index, item in enumerate(row_data):
-                item_str = str(item) if item is not None else ""
-                
-                # Định dạng lại ngày sinh
+                # Định dạng đặc biệt cho Ngày và Giờ
                 if col_index == 1 and isinstance(item, QDate):
                     item_str = item.toString("dd-MM-yyyy")
+                elif (col_index == 2 or col_index == 3) and isinstance(item, QTime):
+                    item_str = item.toString("HH:mm")
+                else:
+                    item_str = str(item) if item is not None else ""
                 
                 cell_item = QTableWidgetItem(item_str)
                 cell_item.setFlags(cell_item.flags() & ~Qt.ItemIsEditable) 
                 self.table.setItem(row_index, col_index, cell_item)
         
         self.table.resizeColumnsToContents()
-        
+
     def get_search_data(self):
         """Lấy thông tin tìm kiếm"""
         return {

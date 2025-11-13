@@ -46,7 +46,7 @@ class HomeWindow(QWidget):
         clock_layout.setSpacing(10)
         
         clock_icon = QLabel()
-        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png"
+        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\clock.png"
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             clock_icon.setPixmap(clock_pixmap)
@@ -154,7 +154,7 @@ class HomeWindow(QWidget):
             ("Môn học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\book.png"),
             ("Thống kê", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\dashboard.png"),
             ("Giảng viên", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\teacher.png"),
-            ("Buổi học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\training.png"),
+            ("Lịch học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\training.png"),
             ("Xem ảnh", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\image.png"),
         ]
 
