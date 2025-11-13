@@ -5,21 +5,21 @@ from PyQt5.QtWidgets import (
     QGridLayout, QVBoxLayout, QHBoxLayout, QFrame
 )
 from PyQt5.QtGui import QPixmap, QIcon
-from PyQt5.QtCore import (
-    Qt, QTimer, QDateTime, QSize, 
-    QPropertyAnimation, QRect, pyqtSignal # Thêm pyqtSignal
-)
+from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QPropertyAnimation, QRect
+from PyQt5.QtCore import pyqtSignal
 
-# Đổi tên class để nhất quán, bạn có thể giữ tên cũ
-# nhưng nếu giữ tên cũ thì phải sửa ở home_controller.py
 class HomeWindow(QWidget): 
-    
-    # 1. Thêm tín hiệu (signal)
     logout_signal = pyqtSignal()
 
-    def __init__(self):
+    def __init__(self, role):
         super().__init__()
+        self.user_role = role 
+        self.buttons = {} # MỚI: Để lưu trữ tham chiếu đến các nút
         self.initUI()
+        
+        # MỚI: Gọi hàm phân quyền sau khi UI đã được vẽ
+        self.set_permissions(role)
+        self.set_user_role(role)
 
     def initUI(self):
         self.setWindowTitle("Hệ thống điểm danh bằng nhận diện khuôn mặt")
@@ -46,7 +46,7 @@ class HomeWindow(QWidget):
         clock_layout.setSpacing(10)
         
         clock_icon = QLabel()
-        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\clock.png"
+        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png"
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             clock_icon.setPixmap(clock_pixmap)
@@ -73,28 +73,27 @@ class HomeWindow(QWidget):
         admin_layout.setSpacing(8)
         
         admin_icon = QLabel()
-        admin_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\user.png"
+        admin_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\user.png"
         if os.path.exists(admin_icon_path):
             admin_pixmap = QPixmap(admin_icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             admin_icon.setPixmap(admin_pixmap)
         
-        # 2. Thay đổi ở đây:
-        self.admin_text = QLabel("ADMIN") # Đổi tên thành self.admin_text
+        self.admin_text = QLabel("ADMIN") 
         self.admin_text.setStyleSheet("color: white; font-size: 14px; font-weight: bold;")
         
         admin_layout.addWidget(admin_icon)
         admin_layout.addWidget(self.admin_text)
 
-        logout_button = QPushButton(" Đăng xuất")
-        logout_button.setCursor(Qt.PointingHandCursor)
-        logout_button.setFixedHeight(35)
+        self.logout_button = QPushButton(" Đăng xuất")
+        self.logout_button.setCursor(Qt.PointingHandCursor)
+        self.logout_button.setFixedHeight(35)
         
-        logout_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\logout.png"
+        logout_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\logout.png"
         if os.path.exists(logout_icon_path):
-            logout_button.setIcon(QIcon(logout_icon_path))
-            logout_button.setIconSize(QSize(20, 20))
+            self.logout_button.setIcon(QIcon(logout_icon_path))
+            self.logout_button.setIconSize(QSize(20, 20))
         
-        logout_button.setStyleSheet("""
+        self.logout_button.setStyleSheet("""
             QPushButton {
                 background-color: rgba(255, 255, 255, 0.2);
                 color: white;
@@ -109,15 +108,14 @@ class HomeWindow(QWidget):
                 border: 1px solid rgba(255, 255, 255, 0.5);
             }
         """)
-        # 3. Thay đổi ở đây:
-        logout_button.clicked.connect(self.logout_clicked) # Giữ nguyên
+        self.logout_button.clicked.connect(self.logout_clicked)
 
         top_layout.addWidget(clock_widget)
         top_layout.addStretch(1)
         top_layout.addWidget(title_label)
         top_layout.addStretch(1)
         top_layout.addWidget(admin_widget)
-        top_layout.addWidget(logout_button)
+        top_layout.addWidget(self.logout_button)
 
         # ===== CONTAINER CHO ẢNH NỀN & NỘI DUNG =====
         content_container = QWidget()
@@ -128,7 +126,7 @@ class HomeWindow(QWidget):
 
         # ===== ẢNH NỀN =====
         self.background = QLabel(content_container)
-        self.bg_path = r"E:\AI-facial-recognition-system-for-roll-call\system\img\logo2.jpg"
+        self.bg_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\logo2.jpg"
         if os.path.exists(self.bg_path):
             self.pixmap = QPixmap(self.bg_path)
             self.background.setPixmap(self.pixmap)
@@ -148,19 +146,22 @@ class HomeWindow(QWidget):
         grid.setSpacing(40)
         grid.setContentsMargins(50, 50, 50, 50)
 
-        buttons = [
-            ("Sinh viên", r"E:\AI-facial-recognition-system-for-roll-call\system\img\female-graduate-student.png"),
-            ("Nhận diện", r"E:\AI-facial-recognition-system-for-roll-call\system\img\electronic-id.png"),
-            ("Điểm danh", r"E:\AI-facial-recognition-system-for-roll-call\system\img\checkmark.png"),
-            ("Môn học", r"E:\AI-facial-recognition-system-for-roll-call\system\img\book.png"),
-            ("Thống kê", r"E:\AI-facial-recognition-system-for-roll-call\system\img\dashboard.png"),
-            ("Giảng viên", r"E:\AI-facial-recognition-system-for-roll-call\system\img\teacher.png"),
-            ("Buổi học", r"E:\AI-facial-recognition-system-for-roll-call\system\img\training.png"),
-            ("Xem ảnh", r"E:\AI-facial-recognition-system-for-roll-call\system\img\image.png"),
+        # Khác với phiên bản trước, chúng ta vẽ tất cả 8 nút
+        buttons_data = [
+            ("Sinh viên", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\female-graduate-student.png"),
+            ("Nhận diện", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\electronic-id.png"),
+            ("Điểm danh", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\checkmark.png"),
+            ("Môn học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\book.png"),
+            ("Thống kê", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\dashboard.png"),
+            ("Giảng viên", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\teacher.png"),
+            ("Buổi học", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\training.png"),
+            ("Xem ảnh", r"E:\AI-facial-recognition-system-for-roll-call\interface\img\image.png"),
         ]
 
         positions = [(i, j) for i in range(2) for j in range(4)]
-        for position, (text, icon_path) in zip(positions, buttons):
+        
+        # Vẽ tất cả các nút
+        for position, (text, icon_path) in zip(positions, buttons_data):
             btn = QToolButton()
             btn.setText(text)
             btn.setFixedSize(180, 150)
@@ -180,15 +181,22 @@ class HomeWindow(QWidget):
                 QToolButton:hover {
                     background-color: #e6f0ff;
                 }
+                /* MỚI: Thêm style cho lúc bị mờ */
+                QToolButton:disabled {
+                    background-color: #f0f0f0;
+                    color: #a0a0a0;
+                }
             """)
             self.add_hover_animation(btn)
             grid.addWidget(btn, *position)
+            
+            # MỚI: Lưu tham chiếu nút bằng tên
+            self.buttons[text] = btn
 
         # ===== THÊM CÁC THÀNH PHẦN VÀO LAYOUT =====
         main_layout.addWidget(top_bar)
         main_layout.addWidget(content_container)
 
-        # Đặt buttons_widget lên trên overlay
         buttons_widget.raise_()
 
         self.setLayout(main_layout)
@@ -197,7 +205,6 @@ class HomeWindow(QWidget):
 
     # ===== CẬP NHẬT ẢNH NỀN & OVERLAY KHI PHÓNG TO =====
     def resizeEvent(self, event):
-        """Cập nhật kích thước background & overlay khi thay đổi kích thước cửa sổ"""
         if hasattr(self, 'content_container'):
             w = self.content_container.width()
             h = self.content_container.height()
@@ -212,17 +219,19 @@ class HomeWindow(QWidget):
 
     def add_hover_animation(self, btn):
         def on_enter():
-            btn.original_geometry = btn.geometry()
-            anim = QPropertyAnimation(btn, b"geometry")
-            anim.setDuration(120)
-            x, y, w, h = btn.original_geometry.getRect()
-            anim.setStartValue(QRect(x, y, w, h))
-            anim.setEndValue(QRect(x - 3, y - 3, w + 6, h + 6))
-            anim.start()
-            btn.anim = anim
+            # Chỉ chạy animation nếu nút đang hoạt động
+            if btn.isEnabled():
+                btn.original_geometry = btn.geometry()
+                anim = QPropertyAnimation(btn, b"geometry")
+                anim.setDuration(120)
+                x, y, w, h = btn.original_geometry.getRect()
+                anim.setStartValue(QRect(x, y, w, h))
+                anim.setEndValue(QRect(x - 3, y - 3, w + 6, h + 6))
+                anim.start()
+                btn.anim = anim
 
         def on_leave():
-            if hasattr(btn, "original_geometry"):
+            if hasattr(btn, "original_geometry") and btn.isEnabled():
                 anim = QPropertyAnimation(btn, b"geometry")
                 anim.setDuration(120)
                 anim.setStartValue(btn.geometry())
@@ -233,15 +242,24 @@ class HomeWindow(QWidget):
         btn.enterEvent = lambda e: on_enter()
         btn.leaveEvent = lambda e: on_leave()
 
-    # 4. Thay đổi ở đây:
     def logout_clicked(self):
-        print("Gửi tín hiệu đăng xuất...")
-        self.logout_signal.emit() # Gửi tín hiệu thay vì chỉ in
-    
-    # 5. Thêm hàm mới:
-    def set_user_role(self, role_name):
-        """Hàm này được controller gọi để set tên vai trò trên UI"""
-        self.admin_text.setText(role_name.upper())
+        print("Tín hiệu đăng xuất được gửi đi...")
+        self.logout_signal.emit()
 
-# 6. Bỏ khối if __name__ == "__main__":
-# (Vì file này sẽ được chạy từ main.py)
+    def set_user_role(self, role):
+        if role == 'GiangVien':
+            self.admin_text.setText("GIẢNG VIÊN")
+        else:
+            self.admin_text.setText("ADMIN")
+            
+    # MỚI: Hàm phân quyền
+    def set_permissions(self, role):
+        """
+        Làm mờ các nút dựa trên vai trò
+        """
+        if role == 'GiangVien':
+            # Nếu là Giảng viên, tìm nút "Giảng viên" và làm mờ
+            if "Giảng viên" in self.buttons:
+                giangvien_btn = self.buttons["Giảng viên"]
+                giangvien_btn.setEnabled(False)
+                giangvien_btn.setToolTip("Bạn không có quyền truy cập mục này")
