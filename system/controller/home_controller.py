@@ -1,5 +1,6 @@
 # SỬA IMPORT: Đảm bảo tên file view là chính xác
 from ui.home import HomeWindow
+from PyQt5.QtWidgets import QMessageBox
 
 # Import các controller con
 try:
@@ -20,6 +21,19 @@ except ImportError:
     print("Cảnh báo: Không thể import ScheduleController.")
     class ScheduleController: pass 
 
+try:
+    from controller.checkin_controller import CheckinController
+except ImportError:
+    print("Cảnh báo: Không thể import CheckinController.")
+    class CheckinController: pass 
+
+# MỚI: Import StatisticsController
+try:
+    from controller.report_controller import ReportController
+except ImportError:
+    print("Cảnh báo: Không thể import ReportController.")
+    class ReportController: pass 
+
 
 class HomeController:
     def __init__(self, role, on_logout):
@@ -36,6 +50,8 @@ class HomeController:
         self.teacher_controller = None
         self.subject_controller = None
         self.schedule_controller = None 
+        self.checkin_controller = None
+        self.report_controller = None # MỚI
 
         # Lắng nghe tín hiệu 'logout_signal' từ View
         self.view.logout_signal.connect(self.handle_logout) 
@@ -57,16 +73,28 @@ class HomeController:
         if monhoc_btn:
             monhoc_btn.clicked.connect(self.open_subject_management)
             
-        # === Nút Lịch học (Mọi người) ===
-        buoihoc_btn = self.view.buttons.get("Lịch học")
+        # === Nút Buổi học (Mọi người) ===
+        # SỬA: Tên nút là "Buổi học" trong ui/home_view.py
+        buoihoc_btn = self.view.buttons.get("Buổi học")
         if buoihoc_btn:
             buoihoc_btn.clicked.connect(self.open_schedule_management)
+        else:
+             print("Cảnh báo: Không tìm thấy nút 'Buổi học'.") # Thêm kiểm tra lỗi
+
+        # === Nút Điểm danh ===
+        checkin_btn = self.view.buttons.get("Điểm danh")
+        if checkin_btn:
+            checkin_btn.clicked.connect(self.open_checkin_management)
+
+        # === Nút Thống kê (MỚI) ===
+        stats_btn = self.view.buttons.get("Thống kê")
+        if stats_btn:
+            stats_btn.clicked.connect(self.open_report_management)
 
         # (Kết nối các nút khác ở đây nếu cần...)
-        # Vd:
-        # sinhvien_btn = self.view.buttons.get("Sinh viên")
-        # if sinhvien_btn:
-        #     sinhvien_btn.clicked.connect(self.open_student_management)
+        sinhvien_btn = self.view.buttons.get("Sinh viên")
+        if sinhvien_btn:
+            sinhvien_btn.clicked.connect(self.open_student_management)
 
     def show(self):
         self.view.show()
@@ -95,16 +123,15 @@ class HomeController:
         """Mở cửa sổ Quản lý thông tin Môn học và ẩn Home"""
         print("Mở cửa sổ Quản lý thông tin Môn học...")
         
-        # SỬA LỖI: Truyền `role` (phân quyền) vào SubjectController
         self.subject_controller = SubjectController(
-            role=self.user_role, # <--- Fix lỗi TypeError
+            role=self.user_role, # Truyền role (phân quyền)
             on_close_callback=self.show_home_again
         )
         self.subject_controller.show()
         self.view.hide()
         
     def open_schedule_management(self):
-        """Mở cửa sổ Quản lý Lịch học (Lịch học) và ẩn Home"""
+        """Mở cửa sổ Quản lý Lịch học (Buổi học) và ẩn Home"""
         print("Mở cửa sổ Quản lý thông tin Lịch học...")
         
         self.schedule_controller = ScheduleController(
@@ -113,10 +140,32 @@ class HomeController:
         self.schedule_controller.show()
         self.view.hide()
 
-    # (Thêm các hàm open_... khác ở đây)
-    # def open_student_management(self):
-    #    print("Chức năng 'Sinh viên' chưa được cài đặt.")
-    #    QMessageBox.information(self.view, "Thông báo", "Chức năng 'Quản lý Sinh viên' đang được phát triển.")
+    def open_checkin_management(self):
+        """Mở cửa sổ Quản lý Điểm danh và ẩn Home"""
+        print("Mở cửa sổ Quản lý thông tin Điểm danh...")
+        
+        self.checkin_controller = CheckinController(
+            on_close_callback=self.show_home_again
+        )
+        self.checkin_controller.show()
+        self.view.hide()
+
+    # MỚI: Hàm mở Thống kê
+    def open_report_management(self):
+        """Mở cửa sổ Quản lý Thống kê và ẩn Home"""
+        print("Mở cửa sổ Quản lý thông tin Thống kê...")
+        
+        self.report_controller = ReportController(
+            on_close_callback=self.show_home_again
+        )
+        self.report_controller.show()
+        self.view.hide()
+
+    def open_student_management(self):
+       """Hàm chờ: Mở Quản lý Sinh viên"""
+       print("Chức năng 'Sinh viên' chưa được cài đặt.")
+       # Sử dụng self.view (cửa sổ Home) làm parent cho QMessageBox
+       QMessageBox.information(self.view, "Thông báo", "Chức năng 'Quản lý Sinh viên' đang được phát triển.")
 
 
     def show_home_again(self):
@@ -127,3 +176,5 @@ class HomeController:
         self.teacher_controller = None
         self.subject_controller = None
         self.schedule_controller = None
+        self.checkin_controller = None
+        self.report_controller = None # MỚI
