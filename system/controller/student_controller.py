@@ -1,11 +1,13 @@
+# controller/student_controller.py
+
 import sys
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem
 from PyQt5.QtCore import Qt, QDate
 # Sửa tên file import (nếu cần)
 from ui.student_info import StudentWindow
-# Chúng ta sẽ cần file service MỚI (ở bước sau)
 from model import student_service 
-from datetime import date # Cần import 'date'
+from model.ai_service import AIService # <-- Đã import AIService
+from datetime import date 
 
 class StudentController:
     def __init__(self, on_close_callback):
@@ -15,6 +17,9 @@ class StudentController:
         """
         self.view = StudentWindow()
         self.on_close_callback = on_close_callback
+        
+        # Khởi tạo service AI
+        self.ai_service = AIService() # <-- Đã khởi tạo AIService
         
         # Biến lưu trữ Sinh viên đang được chọn
         self.selected_ma_sv = None
@@ -44,7 +49,7 @@ class StudentController:
         # Bảng Sinh viên
         self.view.table_student.itemSelectionChanged.connect(self.handle_student_table_click)
         
-        # Nút Nhận diện (Tạm thời vô hiệu hóa)
+        # Nút Nhận diện (ĐÃ KẾT NỐI)
         self.view.btn_take_photo.clicked.connect(self.handle_take_photo)
         self.view.btn_train.clicked.connect(self.handle_train_model)
 
@@ -63,7 +68,7 @@ class StudentController:
         self.on_close_callback()
 
     # ==========================================================
-    # HÀM TẢI VÀ HIỂN THỊ DỮ LIỆU
+    # HÀM TẢI VÀ HIỂN THỊ DỮ LIỆU (Giữ nguyên)
     # ==========================================================
     
     def load_all_students(self):
@@ -145,7 +150,7 @@ class StudentController:
         self.selected_id_sv = None
 
     # ==========================================================
-    # HÀM XỬ LÝ CRUD SINH VIÊN (Bên trái + Bảng trên)
+    # HÀM XỬ LÝ CRUD SINH VIÊN (Giữ nguyên)
     # ==========================================================
 
     def handle_add_student(self):
@@ -218,7 +223,7 @@ class StudentController:
         self.clear_student_form_and_detail()
 
     # ==========================================================
-    # HÀM XỬ LÝ ĐĂNG KÝ LỚP HỌC (Bảng dưới)
+    # HÀM XỬ LÝ ĐĂNG KÝ LỚP HỌC (Giữ nguyên)
     # ==========================================================
     
     def load_registrations_for_student(self, id_sv):
@@ -299,20 +304,67 @@ class StudentController:
             self.view.show_message("Thất bại", message, level="error")
 
     # ==========================================================
-    # HÀM XỬ LÝ NHẬN DIỆN (CHỨC NĂNG CHỜ)
+    # HÀM XỬ LÝ NHẬN DIỆN (ĐÃ CẬP NHẬT)
     # ==========================================================
     
     def handle_take_photo(self):
-        """Xử lý khi nhấn nút Lấy ảnh"""
+        """XHandle_take_photo (ĐÃ CẬP NHẬT)"""
         ma_sv = self.view.get_selected_ma_sv()
         if not ma_sv:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một sinh viên từ bảng.", level="warning")
             return
+            
+        # Hỏi xác nhận trước khi mở camera
+        confirm = self.view.show_message("Xác nhận", 
+                                         f"Bạn sắp mở camera để thu thập dữ liệu cho: {ma_sv}\n"
+                                         "Vui lòng đảm bảo camera sẵn sàng và làm theo hướng dẫn trên cửa sổ camera (nhấn 'k' để chụp).\n\nNhấn 'Yes' để tiếp tục.",
+                                         level="question")
         
-        # (Đây là nơi bạn sẽ gọi file/logic xử lý camera)
-        self.view.show_message("Thông báo", f"Chức năng 'Lấy ảnh' cho SV: {ma_sv}\nĐang được phát triển...")
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Hiển thị thông báo chờ (vì script đang chạy)
+        self.view.show_message("Đang xử lý", 
+                                "Đang khởi động camera...\n"
+                                "Vui lòng xem cửa sổ Terminal hoặc cửa sổ Camera bật lên.", 
+                                level="info")
+        
+        # Gọi service để chạy script
+        # self.ai_service đã được khởi tạo trong __init__
+        success, message = self.ai_service.start_data_collection(ma_sv)
+        
+        # Hiển thị kết quả
+        if success:
+            self.view.show_message("Hoàn tất", message, level="info")
+        else:
+            self.view.show_message("Thất bại", message, level="error")
 
     def handle_train_model(self):
-        """Xử lý khi nhấn nút Huấn luyện"""
-        # (Đây là nơi bạn sẽ gọi file/logic huấn luyện)
-        self.view.show_message("Thông báo", "Chức năng 'Huấn luyện Model'\nĐang được phát triển...")
+        """Xử lý khi nhấn nút Huấn luyện (ĐÃ CẬP NHẬT)"""
+        
+        # Cảnh báo người dùng về việc đơ giao diện
+        confirm = self.view.show_message("Xác nhận Huấn luyện", 
+                                         "Bạn có chắc chắn muốn huấn luyện lại model không?\n\n"
+                                         "QUAN TRỌNG: Quá trình này có thể mất vài phút và sẽ làm GIAO DIỆN BỊ ĐƠ (FREEZE) cho đến khi hoàn tất.\n"
+                                         "Đây là hành động bình thường, vui lòng chờ.",
+                                         level="question")
+        if confirm != QMessageBox.Yes:
+            return
+
+        # Hiển thị thông báo chờ (RẤT QUAN TRỌNG)
+        # (Lưu ý: hàm show_message của bạn phải là loại không-chặn (non-blocking)
+        # Nếu nó là blocking, nó sẽ không hiện lên kịp)
+        self.view.show_message("Đang huấn luyện", 
+                                "Bắt đầu huấn luyện... Vui lòng chờ.\n"
+                                "Giao diện sẽ bị đơ (KHÔNG PHẢI LỖI) trong ít phút.\n"
+                                "Xin vui lòng KHÔNG tắt ứng dụng.", 
+                                level="info")
+        
+        # Gọi service
+        success, message = self.ai_service.start_training()
+        
+        # Hiển thị kết quả
+        if success:
+            self.view.show_message("Hoàn tất", message, level="info")
+        else:
+            self.view.show_message("Thất bại", message, level="error")
