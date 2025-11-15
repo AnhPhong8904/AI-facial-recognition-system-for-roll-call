@@ -14,7 +14,7 @@ except ImportError:
     from Detection.face_detector import FaceDetector 
 
 # --- Cấu hình ---
-DATASET_PATH = r"E:\AI-facial-recognition-system-for-roll-call\dataset"
+DATASET_PATH = r"D:\AI-facial-recognition-system-for-roll-call\dataset"
 TARGET_IMAGES = 50 # Số lượng ảnh cần thu thập
 DELAY_BETWEEN_SHOTS = 0.2 # 0.2 giây (200ms)
 
