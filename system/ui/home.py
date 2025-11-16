@@ -49,7 +49,7 @@ class HomeWindow(QWidget):
         
         clock_icon = QLabel()
         # [SỬA ĐƯỜNG DẪN] Giả định icon nằm trong system/img
-        clock_icon_path = r"system/img/clock.png"
+        clock_icon_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\clock.png"
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(28, 28, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             clock_icon.setPixmap(clock_pixmap)
@@ -77,7 +77,7 @@ class HomeWindow(QWidget):
         
         admin_icon = QLabel()
         # [SỬA ĐƯỜNG DẪN]
-        admin_icon_path = r"system/img/user.png" 
+        admin_icon_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\user.png" 
         if os.path.exists(admin_icon_path):
             admin_pixmap = QPixmap(admin_icon_path).scaled(24, 24, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             admin_icon.setPixmap(admin_pixmap)
@@ -93,7 +93,7 @@ class HomeWindow(QWidget):
         self.logout_button.setFixedHeight(35)
         
         # [SỬA ĐƯỜNG DẪN]
-        logout_icon_path = r"system/img/logout.png"
+        logout_icon_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\logout.png"
         if os.path.exists(logout_icon_path):
             self.logout_button.setIcon(QIcon(logout_icon_path))
             self.logout_button.setIconSize(QSize(20, 20))
@@ -132,7 +132,7 @@ class HomeWindow(QWidget):
         # ===== ẢNH NỀN =====
         self.background = QLabel(content_container)
         # [SỬA ĐƯỜNG DẪN]
-        self.bg_path = r"system/img/logo2.jpg" 
+        self.bg_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\logo2.jpg" 
         if os.path.exists(self.bg_path):
             self.pixmap = QPixmap(self.bg_path)
             self.background.setPixmap(self.pixmap)
@@ -154,14 +154,14 @@ class HomeWindow(QWidget):
 
         # Vẽ tất cả 8 nút
         buttons_data = [
-            ("Sinh viên", r"system/img/female-graduate-student.png"),
-            ("Nhận diện", r"system/img/electronic-id.png"),
-            ("Điểm danh", r"system/img/checkmark.png"),
-            ("Môn học", r"system/img/book.png"),
-            ("Thống kê", r"system/img/dashboard.png"),
-            ("Giảng viên", r"system/img/teacher.png"),
-            ("Lịch học", r"system/img/training.png"),
-            ("Xem ảnh", r"system/img/image.png"),
+            ("Sinh viên", r"D:\AI-facial-recognition-system-for-roll-call\system\img\female-graduate-student.png"),
+            ("Nhận diện", r"D:\AI-facial-recognition-system-for-roll-call\system\img\electronic-id.png"),
+            ("Điểm danh", r"D:\AI-facial-recognition-system-for-roll-call\system\img\checkmark.png"),
+            ("Môn học", r"D:\AI-facial-recognition-system-for-roll-call\system\img\book.png"),
+            ("Thống kê", r"D:\AI-facial-recognition-system-for-roll-call\system\img\dashboard.png"),
+            ("Giảng viên", r"D:\AI-facial-recognition-system-for-roll-call\system\img\teacher.png"),
+            ("Lịch học", r"D:\AI-facial-recognition-system-for-roll-call\system\img\training.png"),
+            ("Xem ảnh", r"D:\AI-facial-recognition-system-for-roll-call\system\img\image.png"),
         ]
 
         positions = [(i, j) for i in range(2) for j in range(4)]

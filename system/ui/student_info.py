@@ -49,7 +49,7 @@ class StudentWindow(QWidget):
 
         # Icon Đồng hồ
         clock_icon = QLabel()
-        clock_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\clock.png"
+        clock_icon_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\clock.png"
         
         if os.path.exists(clock_icon_path):
             clock_pixmap = QPixmap(clock_icon_path).scaled(32, 32, Qt.KeepAspectRatio, Qt.SmoothTransformation)
@@ -74,7 +74,7 @@ class StudentWindow(QWidget):
         # Nút Quay lại
         self.back_btn = QPushButton(" Quay lại") 
         
-        back_icon_path = r"E:\AI-facial-recognition-system-for-roll-call\interface\img\back.png"
+        back_icon_path = r"D:\AI-facial-recognition-system-for-roll-call\system\img\back.png"
         if os.path.exists(back_icon_path):
             self.back_btn.setIcon(QIcon(back_icon_path))
             self.back_btn.setIconSize(QSize(20, 20))

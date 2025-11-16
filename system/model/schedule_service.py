@@ -35,7 +35,7 @@ def get_all_classes_for_combo():
 
 def get_class_details(id_lop):
     """
-    Lấy chi tiết (Tên Môn, Tên GV) của một Lớp học
+    Lấy chi tiết (Tên Môn, Tên GV, Giờ BĐ, Giờ KT) của một Lớp học
     """
     conn = None
     try:
@@ -49,7 +49,9 @@ def get_class_details(id_lop):
         sql_query = """
             SELECT 
                 m.TEN_MON, 
-                g.HO_TEN
+                g.HO_TEN,
+                l.GIO_BAT_DAU, -- <<< THÊM DÒNG NÀY
+                l.GIO_KET_THUC -- <<< THÊM DÒNG NÀY
             FROM LOPHOC l
             LEFT JOIN MONHOC m ON l.ID_MON = m.ID_MON
             LEFT JOIN GIANGVIEN g ON m.ID_GV = g.ID_GV
@@ -58,7 +60,7 @@ def get_class_details(id_lop):
         
         cursor.execute(sql_query, (id_lop,))
         row = cursor.fetchone()
-        return row # Trả về tuple (TEN_MON, HO_TEN)
+        return row # Trả về tuple (TEN_MON, HO_TEN, GIO_BD, GIO_KT)
 
     except Exception as e:
         print(f"Lỗi khi tải chi tiết lớp học (service): {e}")

@@ -29,7 +29,7 @@ class LoginWindow(QWidget):
         # Thay đổi đường dẫn tương đối để dễ quản lý hơn (ví dụ: 'assets/logo.jpg')
         # Tạm thời vẫn dùng đường dẫn tuyệt đối của bạn
         try:
-            pixmap = QPixmap(r"E:\AI-facial-recognition-system-for-roll-call\system\img\logo.jpg")
+            pixmap = QPixmap(r"D:\AI-facial-recognition-system-for-roll-call\system\img\logo.jpg")
             pixmap = pixmap.scaled(400, 300, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             image.setPixmap(pixmap)
         except Exception as e:
@@ -51,7 +51,7 @@ class LoginWindow(QWidget):
         # Logo
         logo = QLabel()
         try:
-            logo_pix = QPixmap(r"E:\AI-facial-recognition-system-for-roll-call\system\img\LogoEaut.png")
+            logo_pix = QPixmap(r"D:\AI-facial-recognition-system-for-roll-call\system\img\logoEaut.png")
             logo_pix = logo_pix.scaled(150, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation)
             logo.setPixmap(logo_pix)
         except Exception as e:

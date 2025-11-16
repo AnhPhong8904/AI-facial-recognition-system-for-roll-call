@@ -82,8 +82,10 @@ class ScheduleController:
             self.view.set_class_details(None)
             return
             
-        # Gọi service để lấy chi tiết (Tên môn, Tên GV)
+        # Gọi service để lấy chi tiết (Giờ hàm này trả về 4 giá trị)
         details = schedule_service.get_class_details(id_lop)
+        
+        # Truyền 4 giá trị đó vào hàm view (hàm view đã được sửa ở bước 2)
         self.view.set_class_details(details)
 
     def handle_table_click(self):
