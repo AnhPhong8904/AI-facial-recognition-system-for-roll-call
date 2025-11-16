@@ -1,8 +1,6 @@
 # model/face_recognize_service.py
-# [PHIÊN BẢN SỬA LỖI]
-# - Sửa cú pháp cursor.execute để truyền tham số an toàn (dùng tuple)
 # [PHIÊN BẢN CẬP NHẬT]
-# - Thêm hàm finalize_attendance để chốt sổ (ghi vắng)
+# - Sửa hàm get_roster để "nhớ" trạng thái điểm danh (tracking)
 
 import datetime
 from model import connectdb # Import module kết nối CSDL của bạn
@@ -86,11 +84,7 @@ def get_session_info(session_id):
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        
-        # [SỬA] Truyền tham số dưới dạng tuple (session_id,)
-        # Dấu phẩy (,) là bắt buộc để Python hiểu đây là tuple
         cursor.execute(sql, (session_id,))
-        
         result = cursor.fetchone()
         
         if result:
@@ -106,15 +100,25 @@ def get_session_info(session_id):
         if conn:
             conn.close()
 
+# ==========================================================
+# [HÀM ĐÃ SỬA]
+# ==========================================================
 def get_roster(session_id):
     """
-    Lấy danh sách sinh viên (dạng dictionary) đã đăng ký buổi học này.
+    Lấy danh sách sinh viên (dictionary) đã đăng ký buổi học này.
+    [SỬA] Dùng LEFT JOIN để lấy trạng thái điểm danh hiện tại (nếu có).
     """
+    
+    # 1. Sửa câu SQL:
+    # - Lấy sv đã đăng ký (giống cũ)
+    # - LEFT JOIN với bảng DIEMDANH *cho buổi học này*
+    # - Chọn thêm cột dd.TRANG_THAI
     sql = """
         SELECT 
             sv.ID_SV, 
             sv.MA_SV, 
-            sv.HO_TEN
+            sv.HO_TEN,
+            dd.TRANG_THAI 
         FROM 
             SINHVIEN AS sv
         JOIN 
@@ -123,6 +127,8 @@ def get_roster(session_id):
             LOPHOC AS l ON dk.ID_LOP = l.ID_LOP
         JOIN 
             BUOIHOC AS bh ON l.ID_LOP = bh.ID_LOP
+        LEFT JOIN 
+            DIEMDANH AS dd ON sv.ID_SV = dd.ID_SV AND bh.ID_BUOI = dd.ID_BUOI
         WHERE 
             bh.ID_BUOI = ?
             AND sv.TRANG_THAI = 1
@@ -147,19 +153,29 @@ def get_roster(session_id):
             print(f"Khong tim thay SV nao dang ky buoi hoc {session_id}")
             return {}
             
+        # 2. Sửa logic gán "status"
         for row in results:
-            (id_sv, ma_sv, ho_ten) = row
+            # Bây giờ có 4 cột trả về
+            (id_sv, ma_sv, ho_ten, trang_thai_db) = row
+            
+            ui_status = "Vắng" # Mặc định là vắng
+            
+            if trang_thai_db is not None:
+                # Nếu không None, nghĩa là đã có trong bảng DIEMDANH
+                # (Là 'Có mặt', 'Đi muộn', hoặc 'Vắng' (nếu đã chốt sổ))
+                ui_status = trang_thai_db
+            
             student_roster[ma_sv] = {
                 "id": id_sv,
                 "name": ho_ten,
-                "status": "Vắng" # Đây là status hiển thị trên UI, không phải ghi xuống CSDL
+                "status": ui_status # Gán trạng thái đúng từ CSDL
             }
             
-        print(f"Da tai {len(student_roster)} SV cho buoi hoc {session_id}")
+        print(f"Da tai {len(student_roster)} SV cho buoi hoc {session_id} (da kiem tra tracking)")
         return student_roster
             
     except Exception as e:
-        print(f"Loi khi lay danh sach SV: {e}")
+        print(f"Loi khi lay danh sach SV (get_roster): {e}")
         return {}
     finally:
         if cursor:
@@ -172,9 +188,21 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
     Ghi danh (INSERT) một sinh viên vào bảng DIEMDANH.
     """
     print(f"DEBUG: Ham mark_present duoc goi voi status = {status} (Kieu du lieu: {type(status)})")
+    
+    # [SỬA] Dùng MERGE thay vì INSERT để tránh lỗi PRIMARY KEY
+    # Nếu SV đã điểm danh (Vd: 'Có mặt') mà bị nhận diện lại (Vd: 'Đi muộn')
+    # thì câu lệnh này sẽ UPDATE, thay vì INSERT và báo lỗi.
     sql = """
-        INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI)
-        VALUES (?, ?, GETDATE(), ?) 
+        MERGE INTO DIEMDANH AS target
+        USING (VALUES (?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN)
+        ON target.ID_BUOI = source.ID_BUOI AND target.ID_SV = source.ID_SV
+        WHEN MATCHED THEN
+            UPDATE SET 
+                TRANG_THAI = source.TRANG_THAI,
+                THOI_GIAN_DIEMDANH = source.THOI_GIAN
+        WHEN NOT MATCHED THEN
+            INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH)
+            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN);
     """
     conn = None
     cursor = None
@@ -185,17 +213,16 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
              
         cursor = conn.cursor()
         
-        # [SỬA] Truyền tất cả tham số vào MỘT TUPLE duy nhất
         params = (session_id, student_id, status)
         cursor.execute(sql, params)
         
         conn.commit()
         
-        print(f"[FaceRecognizeService] Da ghi danh {ma_sv} (ID: {student_id}) vao buoi {session_id} voi trang thai {status}")
+        print(f"[FaceRecognizeService] Da ghi/cap nhat danh {ma_sv} (ID: {student_id}) vao buoi {session_id} voi trang thai {status}")
         return True, "Điểm danh thành công"
         
     except Exception as e:
-        print(f"Loi khi ghi danh CSDL: {e}")
+        print(f"Loi khi ghi danh CSDL (mark_present): {e}")
         if conn:
             conn.rollback()
         return False, f"Lỗi CSDL: {e}"
@@ -205,18 +232,12 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
         if conn:
             conn.close()
 
-# ==========================================================
-# [MỚI] HÀM CHỐT SỔ (GHI VẮNG TỰ ĐỘNG)
-# ==========================================================
-
 def finalize_attendance(session_id):
     """
     Chốt sổ buổi học: Tự động INSERT 'Vắng' cho các SV đã đăng ký
     nhưng CHƯA CÓ bản ghi nào trong bảng DIEMDANH của buổi này.
     """
     
-    # Câu SQL này sẽ INSERT 'Vắng' cho tất cả SV (từ DANGKY)
-    # mà không tồn tại (NOT IN) trong bảng DIEMDANH của buổi học này.
     sql = """
         INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI, GHI_CHU)
         SELECT
@@ -252,11 +273,7 @@ def finalize_attendance(session_id):
              
         cursor = conn.cursor()
         
-        # Thực thi câu lệnh
         cursor.execute(sql, (session_id,))
-        
-        # Lấy số hàng (sinh viên) đã được INSERT
-        # Cần commit() trước khi .rowcount có thể trả về giá trị đúng
         conn.commit()
         
         affected_rows = cursor.rowcount
