@@ -57,6 +57,7 @@ BASE_STATS_QUERY = """
         s.MA_SV,
         s.HO_TEN,
         l.MA_LOP,
+        l.TEN_LOP,
         dd.THOI_GIAN_DIEMDANH,
         dd.TRANG_THAI
     FROM DIEMDANH dd
@@ -68,17 +69,22 @@ BASE_STATS_QUERY = """
 def _format_rows_for_stats(rows):
     """
     Hàm tiện ích: Chuyển đổi datetime sang chuỗi dd-MM-yyyy HH:mm:ss
-    Đầu vào: (MA_SV, HO_TEN, MA_LOP, THOI_GIAN, TRANG_THAI)
+    Đầu vào: (MA_SV, HO_TEN, MA_LOP, TEN_LOP, THOI_GIAN, TRANG_THAI)
     """
     formatted_rows = []
     for row in rows:
-        # row[3] là THOI_GIAN_DIEMDANH
-        thoi_gian_dt = row[3]
+        # row[4] là THOI_GIAN_DIEMDANH
+        thoi_gian_dt = row[4]
         thoi_gian_str = thoi_gian_dt.strftime("%d-%m-%Y %H:%M:%S") if isinstance(thoi_gian_dt, datetime) else str(thoi_gian_dt)
         
-        # Tạo tuple mới với 5 cột
+        # Tạo tuple mới với 6 cột
         formatted_rows.append((
-            row[0], row[1], row[2], thoi_gian_str, row[4]
+            row[0], # MA_SV
+            row[1], # HO_TEN
+            row[2], # MA_LOP
+            row[3], # TEN_LOP
+            thoi_gian_str, # THOI_GIAN
+            row[5]  # TRANG_THAI
         ))
     return formatted_rows
 
@@ -124,7 +130,7 @@ def search_records(status, search_by, keyword):
     """
     Tìm kiếm trong các bản ghi điểm danh (Đi muộn / Vắng).
     status: N'Đi muộn' hoặc N'Vắng'
-    search_by: "Mã Sinh viên", "Tên Sinh viên", "Mã Lớp"
+    search_by: "Mã Sinh viên", "Tên Sinh viên", "Mã Lớp", "Tên Lớp"
     """
     conn = None
     try:
@@ -146,6 +152,9 @@ def search_records(status, search_by, keyword):
             params.append(keyword_like)
         elif search_by == 'Mã Lớp':
             sql_where += " AND l.MA_LOP LIKE ?"
+            params.append(keyword_like)
+        elif search_by == 'Tên Lớp':
+            sql_where += " AND l.TEN_LOP LIKE ?"
             params.append(keyword_like)
         else:
             return None # Tiêu chí tìm kiếm không hợp lệ

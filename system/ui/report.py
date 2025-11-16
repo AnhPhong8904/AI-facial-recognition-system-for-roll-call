@@ -141,7 +141,7 @@ class ReportWindow(QWidget):
          self.btn_all_late, 
          self.btn_csv_late) = self.create_table_section(
             "Sinh viên đi muộn",
-            ["Mã SV", "Tên SV", "Mã Lớp", "Thời gian", "Trạng thái"]
+            ["Mã SV", "Tên SV", "Mã Lớp", "Tên Lớp", "Thời gian", "Trạng thái"]
         )
         
         # Bảng 2: Sinh viên Vắng
@@ -153,7 +153,7 @@ class ReportWindow(QWidget):
          self.btn_all_absent, 
          self.btn_csv_absent) = self.create_table_section(
             "Sinh viên vắng",
-            ["Mã SV", "Tên SV", "Mã Lớp", "Thời gian", "Trạng thái"],
+            ["Mã SV", "Tên SV", "Mã Lớp", "Tên Lớp", "Thời gian", "Trạng thái"],
             color="#DC2626"
         )
 
@@ -195,7 +195,7 @@ class ReportWindow(QWidget):
 
         # Các widget
         cb = QComboBox()
-        cb.addItems(["Mã Sinh viên", "Tên Sinh viên", "Mã Lớp"])
+        cb.addItems(["Mã Sinh viên", "Tên Sinh viên", "Mã Lớp", "Tên Lớp"])
         cb.setStyleSheet("padding: 5px; border: 1px solid #D1D5DB; border-radius: 4px;") # Thêm style cho combobox
 
         txt = QLineEdit()

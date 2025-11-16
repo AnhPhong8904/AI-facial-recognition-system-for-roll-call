@@ -126,23 +126,43 @@ class FaceRecognizeWindow(QWidget):
         self.open_btn = QPushButton("Mở Camera")
         self.close_btn = QPushButton("Đóng Camera")
         
-        for btn in [self.open_btn, self.close_btn]:
+        # ==========================================================
+        # [MỚI] THÊM NÚT CHỐT SỔ
+        # ==========================================================
+        self.finalize_btn = QPushButton("Chốt sổ (Ghi Vắng)")
+        self.finalize_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B91C1C; color: white;
+                font-weight: bold; border-radius: 6px;
+            }
+            QPushButton:hover { background-color: #DC2626; }
+            QPushButton:disabled { background-color: #999; }
+        """)
+        
+        # Cập nhật style cho các nút Mở/Đóng
+        for btn in [self.open_btn, self.close_btn, self.finalize_btn]:
             btn.setFixedWidth(150)
             btn.setFixedHeight(35)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #0B3D91; color: white;
-                    font-weight: bold; border-radius: 6px;
-                }
-                QPushButton:hover { background-color: #1E5CC5; }
-                QPushButton:disabled { background-color: #999; }
-            """)
+            
+            # Chỉ áp dụng style xanh cho nút Mở/Đóng
+            if btn != self.finalize_btn:
+                btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #0B3D91; color: white;
+                        font-weight: bold; border-radius: 6px;
+                    }
+                    QPushButton:hover { background-color: #1E5CC5; }
+                    QPushButton:disabled { background-color: #999; }
+                """)
         
         self.close_btn.setEnabled(False)
         self.open_btn.setEnabled(False) 
+        # Nút Chốt sổ cũng bị vô hiệu hóa lúc đầu
+        self.finalize_btn.setEnabled(False) 
 
         btn_layout.addWidget(self.open_btn)
         btn_layout.addWidget(self.close_btn)
+        btn_layout.addWidget(self.finalize_btn) # <<< THÊM NÚT VÀO LAYOUT
         left_layout.addLayout(btn_layout)
         group_left.setLayout(left_layout)
 
@@ -309,3 +329,9 @@ class FaceRecognizeWindow(QWidget):
         self.open_btn.setEnabled(not is_running)
         self.close_btn.setEnabled(is_running)
         self.subject_cb.setEnabled(not is_running)
+        
+        # [MỚI] Nút chốt sổ chỉ bật khi đã chọn lớp VÀ camera đang tắt
+        if self.subject_cb.currentIndex() > 0 and not is_running:
+            self.finalize_btn.setEnabled(True)
+        else:
+            self.finalize_btn.setEnabled(False)

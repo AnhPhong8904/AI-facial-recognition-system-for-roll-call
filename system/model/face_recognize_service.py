@@ -1,7 +1,8 @@
 # model/face_recognize_service.py
-# [PHIÊN BẢN HOÀN CHỈNH]
-# Đã sửa lỗi tên hàm connectdb, cú pháp SQL Server, 
-# tên bảng/cột, và lỗi CHECK constraint.
+# [PHIÊN BẢN SỬA LỖI]
+# - Sửa cú pháp cursor.execute để truyền tham số an toàn (dùng tuple)
+# [PHIÊN BẢN CẬP NHẬT]
+# - Thêm hàm finalize_attendance để chốt sổ (ghi vắng)
 
 import datetime
 from model import connectdb # Import module kết nối CSDL của bạn
@@ -11,9 +12,6 @@ def get_available_sessions():
     Lấy danh sách các buổi học (lớp học phần) có sẵn để điểm danh.
     (Giả định là các buổi học trong NGÀY HÔM NAY)
     """
-    # [SỬA] Đổi tên bảng: BUOI_HOC -> BUOIHOC, LOP_HOC_PHAN -> LOPHOC, MON_HOC -> MONHOC
-    # [SỬA] Đổi ID: ID_BUOI_HOC -> ID_BUOI
-    # [SỬA] Đổi cú pháp: CURDATE() -> CAST(GETDATE() AS DATE)
     sql = """
         SELECT 
             bh.ID_BUOI, 
@@ -32,7 +30,6 @@ def get_available_sessions():
     conn = None
     cursor = None
     try:
-        # [SỬA] Đổi tên hàm
         conn = connectdb.get_db_connection()
         if not conn:
              raise Exception("Kết nối CSDL thất bại.")
@@ -43,7 +40,6 @@ def get_available_sessions():
         
         if sessions:
             print(f"[FaceRecognizeService] Tim thay {len(sessions)} buoi hoc cho hom nay.")
-            # Đảm bảo trả về list of tuples
             return [tuple(row) for row in sessions]
         else:
             print("[FaceRecognizeService] Khong tim thay buoi hoc nao cho hom nay.")
@@ -62,14 +58,11 @@ def get_session_info(session_id):
     """
     Lấy thông tin chi tiết của một buổi học (session_id)
     """
-    # [SỬA] Đổi tên bảng: BUOI_HOC -> BUOIHOC, LOP_HOC_PHAN -> LOPHOC, MON_HOC -> MONHOC, GIANG_VIEN -> GIANGVIEN
-    # [SỬA] Đổi cú pháp: %s -> ?
-    # [SỬA] Thêm bh.GIO_BAT_DAU và bh.GIO_KET_THUC để controller xử lý logic
     sql = """
         SELECT 
             l.MA_LOP,
             m.TEN_MON,
-            CONCAT(CONVERT(varchar(5), bh.GIO_BAT_DAU, 108), ' - ', CONVERT(varchar(5), bh.GIO_KET_THUC, 108)) AS ThoiGianString,
+            CONCAT(CONVERT(varchar(5), bh.GIO_BAT_DAU, 108), ' - ', CONVERT(varchar(5), bh.GIO_KET_THUC, 108)) AS ThoiGian,
             gv.HO_TEN AS TenGiangVien,
             bh.PHONG_HOC,
             bh.GIO_BAT_DAU,
@@ -88,13 +81,16 @@ def get_session_info(session_id):
     conn = None
     cursor = None
     try:
-        # [SỬA] Đổi tên hàm
         conn = connectdb.get_db_connection()
         if not conn:
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        cursor.execute(sql, session_id)
+        
+        # [SỬA] Truyền tham số dưới dạng tuple (session_id,)
+        # Dấu phẩy (,) là bắt buộc để Python hiểu đây là tuple
+        cursor.execute(sql, (session_id,))
+        
         result = cursor.fetchone()
         
         if result:
@@ -114,8 +110,6 @@ def get_roster(session_id):
     """
     Lấy danh sách sinh viên (dạng dictionary) đã đăng ký buổi học này.
     """
-    # [SỬA] Đổi tên bảng: DANG_KY -> DANGKY, LOP_HOC_PHAN -> LOPHOC, BUOI_HOC -> BUOIHOC
-    # [SỬA] Đổi cú pháp: %s -> ?
     sql = """
         SELECT 
             sv.ID_SV, 
@@ -138,13 +132,15 @@ def get_roster(session_id):
     conn = None
     cursor = None
     try:
-        # [SỬA] Đổi tên hàm
         conn = connectdb.get_db_connection()
         if not conn:
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        cursor.execute(sql, session_id)
+        
+        # [SỬA] Truyền tham số dưới dạng tuple (session_id,)
+        cursor.execute(sql, (session_id,))
+        
         results = cursor.fetchall()
         
         if not results:
@@ -156,7 +152,7 @@ def get_roster(session_id):
             student_roster[ma_sv] = {
                 "id": id_sv,
                 "name": ho_ten,
-                "status": "Vắng"
+                "status": "Vắng" # Đây là status hiển thị trên UI, không phải ghi xuống CSDL
             }
             
         print(f"Da tai {len(student_roster)} SV cho buoi hoc {session_id}")
@@ -171,14 +167,11 @@ def get_roster(session_id):
         if conn:
             conn.close()
         
-def mark_present(session_id, student_id, ma_sv, attendance_status):
+def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
     """
     Ghi danh (INSERT) một sinh viên vào bảng DIEMDANH.
-    [SỬA] Thêm tham số 'attendance_status'
     """
-    # [SỬA] Đổi tên cột: ID_BUOI_HOC -> ID_BUOI, THOI_GIAN_DIEM_DANH -> THOI_GIAN_DIEMDANH
-    # [SỬA] Đổi cú pháp: %s -> ?, NOW() -> GETDATE()
-    # [SỬA LỖI CHECK CONSTRAINT] Đổi N'Có mặt' (cũ) -> ?
+    print(f"DEBUG: Ham mark_present duoc goi voi status = {status} (Kieu du lieu: {type(status)})")
     sql = """
         INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI)
         VALUES (?, ?, GETDATE(), ?) 
@@ -186,25 +179,96 @@ def mark_present(session_id, student_id, ma_sv, attendance_status):
     conn = None
     cursor = None
     try:
-        # [SỬA] Đổi tên hàm
         conn = connectdb.get_db_connection()
         if not conn:
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        # [SỬA] Truyền 'attendance_status' (Controller sẽ gửi 'Có mặt' hoặc 'Đi muộn')
-        cursor.execute(sql, session_id, student_id, attendance_status)
+        
+        # [SỬA] Truyền tất cả tham số vào MỘT TUPLE duy nhất
+        params = (session_id, student_id, status)
+        cursor.execute(sql, params)
+        
         conn.commit()
         
-        print(f"[FaceRecognizeService] Da ghi danh {ma_sv} (ID: {student_id}) vao buoi {session_id} voi trang thai {attendance_status}")
+        print(f"[FaceRecognizeService] Da ghi danh {ma_sv} (ID: {student_id}) vao buoi {session_id} voi trang thai {status}")
         return True, "Điểm danh thành công"
         
     except Exception as e:
         print(f"Loi khi ghi danh CSDL: {e}")
-        # [THÊM] Rollback nếu có lỗi
         if conn:
             conn.rollback()
         return False, f"Lỗi CSDL: {e}"
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+# ==========================================================
+# [MỚI] HÀM CHỐT SỔ (GHI VẮNG TỰ ĐỘNG)
+# ==========================================================
+
+def finalize_attendance(session_id):
+    """
+    Chốt sổ buổi học: Tự động INSERT 'Vắng' cho các SV đã đăng ký
+    nhưng CHƯA CÓ bản ghi nào trong bảng DIEMDANH của buổi này.
+    """
+    
+    # Câu SQL này sẽ INSERT 'Vắng' cho tất cả SV (từ DANGKY)
+    # mà không tồn tại (NOT IN) trong bảng DIEMDANH của buổi học này.
+    sql = """
+        INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI, GHI_CHU)
+        SELECT
+            bh.ID_BUOI,
+            sv.ID_SV,
+            GETDATE(),          -- Thời gian chốt sổ là lúc chạy lệnh
+            N'Vắng',            -- Gán trạng thái 'Vắng'
+            N'Tự động ghi vắng' -- Ghi chú
+        FROM
+            SINHVIEN sv
+        JOIN
+            DANGKY dk ON sv.ID_SV = dk.ID_SV
+        JOIN
+            LOPHOC lh ON dk.ID_LOP = lh.ID_LOP
+        JOIN
+            BUOIHOC bh ON lh.ID_LOP = bh.ID_LOP
+        WHERE
+            bh.ID_BUOI = ?  -- Chỉ buổi học này
+        AND
+            sv.ID_SV NOT IN (
+                SELECT dd.ID_SV
+                FROM DIEMDANH dd
+                WHERE dd.ID_BUOI = bh.ID_BUOI
+            );
+    """
+    
+    conn = None
+    cursor = None
+    try:
+        conn = connectdb.get_db_connection()
+        if not conn:
+             raise Exception("Kết nối CSDL thất bại.")
+             
+        cursor = conn.cursor()
+        
+        # Thực thi câu lệnh
+        cursor.execute(sql, (session_id,))
+        
+        # Lấy số hàng (sinh viên) đã được INSERT
+        # Cần commit() trước khi .rowcount có thể trả về giá trị đúng
+        conn.commit()
+        
+        affected_rows = cursor.rowcount
+        
+        print(f"[FaceRecognizeService] Da chot so buoi {session_id}. Ghi vang cho {affected_rows} SV.")
+        return True, f"Chốt sổ thành công. Đã ghi vắng cho {affected_rows} sinh viên.", affected_rows
+        
+    except Exception as e:
+        print(f"Loi khi chot so CSDL: {e}")
+        if conn:
+            conn.rollback()
+        return False, f"Lỗi CSDL khi chốt sổ: {e}", 0
     finally:
         if cursor:
             cursor.close()

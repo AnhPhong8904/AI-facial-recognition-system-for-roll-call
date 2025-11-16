@@ -1,10 +1,10 @@
 import pyodbc
 
 # --- Đã cập nhật thông tin CSDL của bạn ---
-SERVER = 'DESKTOP-MUUEIFA'
+SERVER = 'ANHPHONG'
 DATABASE = 'DIEMDANH_NHAN_DIEN'
 USERNAME = 'sa'
-PASSWORD = '123'
+PASSWORD = '95135782465'
 
 CONN_STR = (
     f'DRIVER={{SQL Server}};'

@@ -2,10 +2,10 @@ import sys
 import os
 import cv2
 import numpy as np
-import datetime  # [THÊM] Import datetime để xử lý thời gian
-from PyQt5.QtWidgets import QListWidgetItem
+from datetime import datetime, timedelta # [SỬA] Thêm import datetime
+from PyQt5.QtWidgets import QListWidgetItem, QMessageBox # [MỚI] Thêm QMessageBox
 from PyQt5.QtCore import Qt, QDateTime
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QColor # [SỬA] Thêm import QColor
 
 # -------------------------------------------------------------------
 # [QUAN TRỌNG] Thêm thư mục gốc vào sys.path
@@ -25,6 +25,7 @@ except NameError:
 # Imports
 # -------------------------------------------------------------------
 # Import View
+# [SỬA] Sửa lại tên file và tên class cho đúng
 from ui.face_recognize import FaceRecognizeWindow
 
 # Import các model AI (từ thư mục AI_model)
@@ -32,14 +33,16 @@ from AI_model.Detection.face_detector import FaceDetector
 from AI_model.Recognition.embedding_extractor import EmbeddingExtractor
 from AI_model.Recognition.torch_recognizer import TorchRecognizer
 
-# Import các hàm service thật (tên file bạn đã cung cấp)
+# [SỬA] Import các hàm service thật (tên file bạn đã cung cấp)
 from model.face_recognize_service import (
-    get_available_sessions, get_session_info, get_roster, mark_present
+    get_available_sessions, get_session_info, get_roster, mark_present,
+    finalize_attendance  # [MỚI] Import hàm chốt sổ
 )
 
-
+# Tên class FaceRecognizeController đã đúng
 class FaceRecognizeController:
     def __init__(self, on_close_callback):
+        # [SỬA] Sửa lại tên class View
         self.view = FaceRecognizeWindow()
         self.on_close_callback = on_close_callback
 
@@ -48,10 +51,9 @@ class FaceRecognizeController:
         self.current_session_id = None
         self.student_roster = {} # Dict lưu trạng thái (Vắng/Có mặt/Đi muộn)
         
-        # [SỬA] Thêm các biến lưu trữ thời gian
-        self.current_session_start_time = None
-        self.current_session_end_time = None
-        self.grace_period_minutes = 15  # 15 phút ân hạn
+        # [SỬA] Thêm biến lưu trữ thời gian
+        self.session_start_time = None
+        self.session_end_time = None
         
         # Ngưỡng nhận diện (cần tinh chỉnh)
         self.similarity_threshold = 0.6 
@@ -109,6 +111,12 @@ class FaceRecognizeController:
         
         # Kết nối timer (tạo trong View) với hàm update_frame
         self.view.timer_camera.timeout.connect(self.update_frame)
+        
+        # [MỚI] KẾT NỐI NÚT CHỐT SỔ
+        # Bạn *phải* thêm một nút tên là 'finalize_btn' (hoặc tên khác) 
+        # vào file ui/face_recognize.py
+        # Sau đó bỏ comment dòng dưới đây:
+        self.view.finalize_btn.clicked.connect(self.handle_finalize_session)
 
     def show(self):
         """Hiển thị cửa sổ và tải lại danh sách buổi học (có thể có buổi mới)."""
@@ -127,6 +135,8 @@ class FaceRecognizeController:
         except Exception as e:
             self.view.update_notice(f"Lỗi khi tải danh sách buổi học: {e}", "error")
 
+    # [SỬA LẠI HÀM NÀY]
+
     def handle_session_selected(self, index):
         """Khi người dùng chọn một buổi học từ ComboBox."""
         self.current_session_id = self.view.subject_cb.itemData(index)
@@ -135,23 +145,45 @@ class FaceRecognizeController:
             self.view.clear_class_info()
             self.view.open_btn.setEnabled(False)
             self.student_roster = {}
-            self.current_session_start_time = None # [SỬA] Xóa
-            self.current_session_end_time = None # [SỬA] Xóa
             self.populate_roster_lists() 
+            # [SỬA] Reset thời gian
+            self.session_start_time = None
+            self.session_end_time = None
         else:
             try:
                 # 1. Cập nhật thông tin buổi học
                 session_details = get_session_info(self.current_session_id)
                 if session_details:
-                    # [SỬA] Service trả về 7 giá trị
+                    # [SỬA] Nhận 7 giá trị từ service
                     (ten_lop, ten_mon, thoi_gian, giang_vien, phong, 
-                     session_start, session_end) = session_details
+                     start_time_val, end_time_val) = session_details
                     
                     self.view.update_class_info(ten_lop, ten_mon, thoi_gian, giang_vien, phong)
                     
-                    # [SỬA] Lưu lại giờ học
-                    self.current_session_start_time = session_start
-                    self.current_session_end_time = session_end
+                    # ---------------------------------------------------------
+                    # [SỬA LỖI] Chuyển đổi sang datetime.time
+                    # Bất kể CSDL trả về str hay time, chúng ta sẽ xử lý
+                    # ---------------------------------------------------------
+                    if isinstance(start_time_val, str):
+                        # Nếu là string (ví dụ: '07:00:00' hoặc '07:00:00.000000')
+                        # Cắt bỏ phần milisecond nếu có
+                        time_str = start_time_val.split('.')[0]
+                        self.session_start_time = datetime.strptime(time_str, '%H:%M:%S').time()
+                    else:
+                        # Nếu đã là datetime.time (trường hợp lý tưởng)
+                        self.session_start_time = start_time_val
+                        
+                    if isinstance(end_time_val, str):
+                        time_str = end_time_val.split('.')[0]
+                        self.session_end_time = datetime.strptime(time_str, '%H:%M:%S').time()
+                    else:
+                        self.session_end_time = end_time_val
+                    # ---------------------------------------------------------
+                    
+                else:
+                    # [SỬA] Reset thời gian nếu không tìm thấy
+                    self.session_start_time = None
+                    self.session_end_time = None
                 
                 # 2. Lấy danh sách sinh viên
                 self.student_roster = get_roster(self.current_session_id)
@@ -167,7 +199,10 @@ class FaceRecognizeController:
                 self.view.update_notice(f"Lỗi khi tải danh sách lớp: {e}", "error")
 
     def populate_roster_lists(self):
-        """Cập nhật 2 danh sách Vắng/Có mặt từ self.student_roster (ĐÃ SỬA)."""
+        """
+        Cập nhật 2 danh sách Vắng/Có mặt từ self.student_roster.
+        [SỬA] Thêm logic hiển thị 'Đi muộn'
+        """
         self.view.present_list_widget.clear()
         self.view.absent_list_widget.clear()
         
@@ -184,24 +219,19 @@ class FaceRecognizeController:
             for ma_sv in sorted_ma_sv:
                 student = self.student_roster[ma_sv]
                 item_text = f"{ma_sv} - {student['name']}"
-                item = QListWidgetItem()
+                item = QListWidgetItem(item_text)
                 
-                status = student['status']
-                
-                if status == 'Vắng':
-                    item.setText(item_text)
+                if student['status'] == 'Vắng':
                     self.view.absent_list_widget.addItem(item)
                     absent_count += 1
                 else:
-                    # Các trạng thái khác (Có mặt, Đi muộn) đều vào list 'present'
-                    if status == 'Có mặt':
+                    # [SỬA] Phân biệt 'Có mặt' và 'Đi muộn'
+                    if student['status'] == 'Đi muộn':
+                        item.setText(f"{item_text} (Đi muộn)")
+                        item.setForeground(QColor("#C05000")) # Màu cam đậm
+                    else: # 'Có mặt'
                         item.setForeground(Qt.darkGreen)
-                        item_text += " (Đúng giờ)"
-                    elif status == 'Đi muộn':
-                        item.setForeground(Qt.darkOrange) # Màu cam cho đi muộn
-                        item_text += " (Đi muộn)"
-                    
-                    item.setText(item_text) # Cập nhật lại text
+                        
                     self.view.present_list_widget.addItem(item)
                     present_count += 1
                 
@@ -309,15 +339,17 @@ class FaceRecognizeController:
                 # [QUAN TRỌNG] Kiểm tra xem SV đã điểm danh CHƯA
                 if student_data["status"] == "Vắng":
                     # --- CHUẨN BỊ ĐIỂM DANH ---
-                    # (Hàm mark_student_present sẽ kiểm tra thời gian)
-                    # Chúng ta gọi hàm này, nó sẽ tự xử lý logic thời gian
+                    # (Hàm mark_student_present giờ sẽ kiểm tra thời gian)
+                    # [SỬA] Gọi hàm điểm danh (hàm này sẽ tự xử lý logic thời gian)
                     self.mark_student_present(ma_sv, cropped_face_img)
+                    
+                    # Tạm thời vẫn vẽ màu xanh, hàm mark_student_present sẽ cập nhật UI notice
                     color = (0, 255, 0) # Xanh lá
-                    text = f"{ma_sv} (OK)"
+                    text = f"{ma_sv} (Checking...)"
                 else:
-                    # Đã điểm danh rồi (Có mặt hoặc Đi muộn)
+                    # Đã điểm danh rồi
                     color = (0, 255, 0) # Xanh lá
-                    text = f"{ma_sv} ({student_data['status']})"
+                    text = f"{ma_sv} (Da check-in)"
             else:
                 # Nhận diện được, nhưng không có trong lớp
                 color = (0, 255, 255) # Vàng
@@ -332,71 +364,62 @@ class FaceRecognizeController:
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
     def mark_student_present(self, ma_sv, cropped_face_img):
-        """Hàm quan trọng: Cập nhật CSDL, State, và UI (ĐÃ SỬA LOGIC THỜI GIAN)."""
-        
-        # --- [LOGIC THỜI GIAN MỚI] ---
-        if self.current_session_id is None or \
-           self.current_session_start_time is None or \
-           self.current_session_end_time is None:
-            self.view.update_notice("Lỗi: Không có thông tin giờ học.", "error")
+        """
+        Hàm quan trọng: Kiểm tra thời gian, Cập nhật CSDL, State, và UI.
+        [SỬA] Toàn bộ hàm này được viết lại để xử lý logic thời gian.
+        """
+        # 1. Kiểm tra điều kiện đầu vào
+        if self.current_session_id is None or self.session_start_time is None:
+            self.view.update_notice("Lỗi: Chưa chọn buổi học hoặc thiếu thông tin giờ.", "error")
             return
-        
-        # 1. Lấy các đối tượng thời gian
-        try:
-            current_datetime = datetime.datetime.now()
-            today = current_datetime.date()
             
-            # Ghép ngày hôm nay với giờ học (lấy từ CSDL)
-            start_datetime = datetime.datetime.combine(today, self.current_session_start_time)
-            end_datetime = datetime.datetime.combine(today, self.current_session_end_time)
-            
-            # Tính thời điểm kết thúc ân hạn
-            grace_end_datetime = start_datetime + datetime.timedelta(minutes=self.grace_period_minutes)
-
-            attendance_status = ""
-            can_mark = True
-
-            # 2. Xét các trường hợp
-            if current_datetime < start_datetime:
-                self.view.update_notice(f"Chưa đến giờ điểm danh (bắt đầu lúc {self.current_session_start_time.strftime('%H:%M')}).", "warning")
-                can_mark = False
-            elif current_datetime <= grace_end_datetime:
-                attendance_status = "Có mặt"
-            elif current_datetime <= end_datetime:
-                attendance_status = "Đi muộn"
-            else:
-                self.view.update_notice(f"Đã hết giờ điểm danh (kết thúc lúc {self.current_session_end_time.strftime('%H:%M')}).", "error")
-                can_mark = False
-                
-            if not can_mark:
-                return # Dừng, không điểm danh
-
-        except Exception as e:
-            self.view.update_notice(f"Lỗi xử lý thời gian: {e}", "error")
-            return
-        # --- [HẾT LOGIC THỜI GIAN] ---
-
         student_data = self.student_roster[ma_sv]
         student_id = student_data["id"]
         
-        # 1. Cập nhật CSDL (truyền trạng thái đã tính)
+        # 2. Xử lý logic thời gian
+        today = datetime.today().date()
+        now = datetime.now()
+        
+        # Tạo đối tượng datetime đầy đủ
+        start_datetime = datetime.combine(today, self.session_start_time)
+        grace_end_datetime = start_datetime + timedelta(minutes=15)
+        end_datetime = datetime.combine(today, self.session_end_time)
+        
+        status_to_set = None
+        notice_message = ""
+        notice_level = "info"
+
+        if now > end_datetime:
+            notice_message = f"❌ Đã hết giờ điểm danh (Kết thúc lúc {self.session_end_time.strftime('%H:%M')})."
+            notice_level = "error"
+        elif now >= start_datetime and now <= grace_end_datetime:
+            status_to_set = "Có mặt"
+        elif now > grace_end_datetime and now <= end_datetime:
+            status_to_set = "Đi muộn"
+        else: # now < start_datetime
+            notice_message = f"ℹ️ Chưa đến giờ điểm danh (Bắt đầu {self.session_start_time.strftime('%H:%M')})."
+            notice_level = "warning"
+
+        # 3. Nếu không hợp lệ (quá sớm/quá muộn), chỉ thông báo và dừng
+        if status_to_set is None:
+            self.view.update_notice(notice_message, notice_level)
+            return
+
+        # 4. Nếu hợp lệ -> Ghi vào CSDL
         success, message = mark_present(
-            self.current_session_id, 
-            student_id, 
-            ma_sv,
-            attendance_status # <--- GIÁ TRỊ MỚI
+            self.current_session_id, student_id, ma_sv, status_to_set
         )
         
         if success:
-            # 2. Cập nhật State (Bộ nhớ)
-            self.student_roster[ma_sv]["status"] = attendance_status # <--- SỬA
+            # 5. Cập nhật State (Bộ nhớ)
+            self.student_roster[ma_sv]["status"] = status_to_set
             
-            # 3. Cập nhật UI
-            self.view.update_notice(f"✅ {student_data['name']} ({ma_sv}) đã điểm danh: {attendance_status}", "success") # <--- SỬA
+            # 6. Cập nhật UI
+            notice_suffix = f" ({status_to_set})"
+            self.view.update_notice(f"✅ {student_data['name']} ({ma_sv}) đã điểm danh!{notice_suffix}", "success")
             
             # Cập nhật box "Gần nhất"
-            now = QDateTime.currentDateTime()
-            timestamp = now.toString("hh:mm:ss")
+            timestamp = now.strftime("%H:%M:%S")
             
             # Chuyển ảnh crop (OpenCV) sang QImage
             face_rgb = cv2.cvtColor(cropped_face_img, cv2.COLOR_BGR2RGB)
@@ -405,7 +428,67 @@ class FaceRecognizeController:
             
             self.view.update_last_person_info(ma_sv, student_data['name'], timestamp, q_face_img)
             
-            # 4. Cập nhật danh sách (chuyển từ Vắng -> Có mặt)
+            # 7. Cập nhật danh sách (chuyển từ Vắng -> Có mặt/Đi muộn)
             self.populate_roster_lists()
         else:
             self.view.update_notice(f"❌ Lỗi khi ghi danh {ma_sv}: {message}", "error")
+
+    # ==========================================================
+    # [MỚI] HÀM XỬ LÝ CHỐT SỔ (GHI VẮNG)
+    # ==========================================================
+    
+    def handle_finalize_session(self):
+        """
+        Xử lý sự kiện nhấn nút "Chốt sổ".
+        Hàm này sẽ gọi service để INSERT 'Vắng' cho tất cả SV
+        chưa được điểm danh trong buổi học này.
+        """
+        
+        # 1. Kiểm tra đã chọn buổi học chưa
+        if self.current_session_id is None:
+            self.view.update_notice("Vui lòng chọn buổi học trước khi chốt sổ.", "error")
+            QMessageBox.warning(self.view, "Lỗi", "Vui lòng chọn buổi học trước khi chốt sổ.")
+            return
+
+        # 2. Kiểm tra xem camera có đang chạy không (không nên chốt sổ khi đang chạy)
+        if self.cap and self.cap.isOpened():
+            self.view.update_notice("Vui lòng tắt camera trước khi chốt sổ.", "warning")
+            QMessageBox.warning(self.view, "Cảnh báo", "Vui lòng tắt camera trước khi chốt sổ.")
+            return
+
+        # 3. Hỏi xác nhận người dùng
+        confirm_reply = QMessageBox.question(
+            self.view,
+            "Xác nhận Chốt sổ",
+            "Bạn có chắc chắn muốn chốt sổ buổi học này không?\n\n"
+            "Thao tác này sẽ tự động ghi 'Vắng' cho tất cả sinh viên "
+            "chưa được điểm danh (có mặt/đi muộn).\n\n"
+            "Bạn chỉ nên thực hiện việc này khi buổi học đã kết thúc.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if confirm_reply == QMessageBox.No:
+            self.view.update_notice("Thao tác chốt sổ đã bị hủy.", "info")
+            return
+
+        # 4. Nếu người dùng đồng ý -> Gọi service
+        try:
+            self.view.update_notice("Đang chốt sổ, vui lòng chờ...", "warning")
+            
+            success, message, count = finalize_attendance(self.current_session_id)
+            
+            if success:
+                self.view.update_notice(f"✅ {message}", "success")
+                QMessageBox.information(self.view, "Hoàn tất", f"Chốt sổ thành công.\nĐã ghi vắng cho {count} sinh viên.")
+                
+                # Cập nhật lại danh sách (dù không ảnh hưởng UI, nhưng cho đúng)
+                # self.student_roster = get_roster(self.current_session_id)
+                # self.populate_roster_lists()
+            else:
+                self.view.update_notice(f"❌ Lỗi khi chốt sổ: {message}", "error")
+                QMessageBox.critical(self.view, "Lỗi", f"Không thể chốt sổ.\nLỗi: {message}")
+        
+        except Exception as e:
+            self.view.update_notice(f"❌ Lỗi nghiêm trọng khi chốt sổ: {e}", "error")
+            QMessageBox.critical(self.view, "Lỗi nghiêm trọng", f"Đã xảy ra lỗi: {e}")
