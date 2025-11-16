@@ -64,13 +64,16 @@ def get_session_info(session_id):
     """
     # [SỬA] Đổi tên bảng: BUOI_HOC -> BUOIHOC, LOP_HOC_PHAN -> LOPHOC, MON_HOC -> MONHOC, GIANG_VIEN -> GIANGVIEN
     # [SỬA] Đổi cú pháp: %s -> ?
+    # [SỬA] Thêm bh.GIO_BAT_DAU và bh.GIO_KET_THUC để controller xử lý logic
     sql = """
         SELECT 
             l.MA_LOP,
             m.TEN_MON,
-            CONCAT(CONVERT(varchar(5), bh.GIO_BAT_DAU, 108), ' - ', CONVERT(varchar(5), bh.GIO_KET_THUC, 108)) AS ThoiGian,
+            CONCAT(CONVERT(varchar(5), bh.GIO_BAT_DAU, 108), ' - ', CONVERT(varchar(5), bh.GIO_KET_THUC, 108)) AS ThoiGianString,
             gv.HO_TEN AS TenGiangVien,
-            bh.PHONG_HOC
+            bh.PHONG_HOC,
+            bh.GIO_BAT_DAU,
+            bh.GIO_KET_THUC
         FROM 
             BUOIHOC AS bh
         JOIN 
@@ -168,16 +171,17 @@ def get_roster(session_id):
         if conn:
             conn.close()
         
-def mark_present(session_id, student_id, ma_sv):
+def mark_present(session_id, student_id, ma_sv, attendance_status):
     """
     Ghi danh (INSERT) một sinh viên vào bảng DIEMDANH.
+    [SỬA] Thêm tham số 'attendance_status'
     """
     # [SỬA] Đổi tên cột: ID_BUOI_HOC -> ID_BUOI, THOI_GIAN_DIEM_DANH -> THOI_GIAN_DIEMDANH
     # [SỬA] Đổi cú pháp: %s -> ?, NOW() -> GETDATE()
-    # [SỬA LỖI CHECK CONSTRAINT] Đổi N'Có mặt' -> 'Có mặt'
+    # [SỬA LỖI CHECK CONSTRAINT] Đổi N'Có mặt' (cũ) -> ?
     sql = """
         INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI)
-        VALUES (?, ?, GETDATE(), 'Có mặt') 
+        VALUES (?, ?, GETDATE(), ?) 
     """
     conn = None
     cursor = None
@@ -188,10 +192,11 @@ def mark_present(session_id, student_id, ma_sv):
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        cursor.execute(sql, session_id, student_id)
+        # [SỬA] Truyền 'attendance_status' (Controller sẽ gửi 'Có mặt' hoặc 'Đi muộn')
+        cursor.execute(sql, session_id, student_id, attendance_status)
         conn.commit()
         
-        print(f"[FaceRecognizeService] Da ghi danh {ma_sv} (ID: {student_id}) vao buoi {session_id}")
+        print(f"[FaceRecognizeService] Da ghi danh {ma_sv} (ID: {student_id}) vao buoi {session_id} voi trang thai {attendance_status}")
         return True, "Điểm danh thành công"
         
     except Exception as e:

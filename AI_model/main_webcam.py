@@ -11,7 +11,7 @@ from Recognition.torch_recognizer import TorchRecognizer
 
 # --- Cấu hình ---
 # [SỬA] Quay lại 2 file model
-MODEL_PATH = r"D:\AI-facial-recognition-system-for-roll-call\system\models\face_prototypes.pth"
+MODEL_PATH = r"E:\AI-facial-recognition-system-for-roll-call\system\models\face_prototypes.pth"
 
 
 # [SỬA] Đây là NGƯỠNG KHOẢNG CÁCH

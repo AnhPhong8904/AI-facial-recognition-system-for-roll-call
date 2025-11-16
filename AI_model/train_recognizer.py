@@ -17,7 +17,7 @@ except ImportError as e:
     exit()
 
 # --- Cấu hình ---
-DATASET_PATH = r"D:\AI-facial-recognition-system-for-roll-call\dataset"
+DATASET_PATH = r"E:\AI-facial-recognition-system-for-roll-call\dataset"
 MODEL_PATH = "models/face_prototypes.pth"
 
 # -----------------
