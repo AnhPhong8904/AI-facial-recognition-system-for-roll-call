@@ -126,7 +126,7 @@ class StudentWindow(QWidget):
                 input_field.setDate(QDate(2000, 1, 1))
             elif label_text == "Trạng thái:":
                 input_field = QComboBox()
-                input_field.addItems(["Đang học", "Đã tốt nghiệp", "Bị đình chỉ"])
+                input_field.addItems(["Đang học", "Đã tốt nghiệp", "Bị đình chỉ","Bảo lưu"])
                 # Lưu ý: Controller sẽ chuyển 'Đang học' thành 1, còn lại là 0
             else:
                 input_field = QLineEdit()
@@ -281,8 +281,9 @@ class StudentWindow(QWidget):
 
     def get_student_form_data(self):
         """Lấy dữ liệu từ form Sinh viên"""
-        trang_thai_text = self.inputs["Trạng thái:"].currentText()
-        trang_thai_bit = 1 if trang_thai_text == "Đang học" else 0
+        trang_thai_text = self.inputs["Trạng thái:"].currentText().strip()
+        if not trang_thai_text:
+            trang_thai_text = "Đang học"
         
         ngay_sinh_qdate = self.inputs["Ngày sinh:"].date()
         # Xử lý ngày sinh: Nếu là ngày mặc định, lưu NULL
@@ -300,7 +301,7 @@ class StudentWindow(QWidget):
             "nganh": self.inputs["Ngành học:"].text(),
             "nam_hoc": self.inputs["Năm học:"].text(),
             "lop_hoc": self.inputs["Lớp hành chính:"].text(),
-            "trang_thai": trang_thai_bit
+            "trang_thai": trang_thai_text
         }
         return data
 
@@ -322,8 +323,10 @@ class StudentWindow(QWidget):
         self.inputs["Năm học:"].setText(data.get("nam_hoc", ""))
         self.inputs["Lớp hành chính:"].setText(data.get("lop_hoc", ""))
         
-        trang_thai_str = "Đang học" if data.get("trang_thai", 1) == 1 else "Đã tốt nghiệp"
-        self.inputs["Trạng thái:"].setCurrentText(trang_thai_str)
+        trang_thai_value = data.get("trang_thai", "Đang học") or "Đang học"
+        if self.inputs["Trạng thái:"].findText(trang_thai_value) == -1:
+            trang_thai_value = "Đang học"
+        self.inputs["Trạng thái:"].setCurrentText(trang_thai_value)
 
     def clear_student_form(self):
         """Xóa trắng form Sinh viên"""
@@ -350,9 +353,8 @@ class StudentWindow(QWidget):
         self.table_student.setRowCount(len(data))
         for row_index, row_data in enumerate(data):
             # Cột cuối (Trạng thái)
-            trang_thai_bit = row_data[9]
-            trang_thai_str = "Đang học" if trang_thai_bit == 1 else "Nghỉ học"
-            
+            trang_thai_str = row_data[9] if len(row_data) > 9 and row_data[9] else "Đang học"
+
             for col_index, item in enumerate(row_data[:-1]): # Lấy 9 cột đầu
                 item_str = str(item) if item is not None else ""
                 cell_item = QTableWidgetItem(item_str)
@@ -360,7 +362,7 @@ class StudentWindow(QWidget):
                 self.table_student.setItem(row_index, col_index, cell_item)
             
             # Set cột Trạng thái (cuối cùng)
-            cell_item_trang_thai = QTableWidgetItem(trang_thai_str)
+            cell_item_trang_thai = QTableWidgetItem(str(trang_thai_str))
             cell_item_trang_thai.setFlags(cell_item_trang_thai.flags() & ~Qt.ItemIsEditable) 
             self.table_student.setItem(row_index, 9, cell_item_trang_thai)
         

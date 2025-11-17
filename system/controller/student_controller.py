@@ -108,7 +108,6 @@ class StudentController:
         trang_thai_str = self.view.table_student.item(selected_row, 9).text()
         
         self.selected_student_active = (trang_thai_str == "Đang học")
-        trang_thai_bit = 1 if trang_thai_str == "Đang học" else 0
         
         # Chuyển đổi ngày sinh (từ dd-MM-yyyy sang yyyy-MM-dd)
         try:
@@ -121,7 +120,7 @@ class StudentController:
             "ma_sv": ma_sv, "ho_ten": ho_ten, "gioi_tinh": gioi_tinh,
             "ngay_sinh": ngay_sinh_sql, "email": email, "sdt": sdt,
             "nganh": nganh, "nam_hoc": nam_hoc, "lop_hoc": lop_hoc,
-            "trang_thai": trang_thai_bit
+            "trang_thai": trang_thai_str
         }
         self.view.set_student_form_data(data)
         self.view.inputs["Mã sinh viên:"].setEnabled(False) # Không cho sửa Mã SV
