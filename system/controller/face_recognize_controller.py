@@ -4,7 +4,7 @@ import cv2
 import numpy as np
 from datetime import datetime, timedelta # [SỬA] Thêm import datetime
 from PyQt5.QtWidgets import QListWidgetItem, QMessageBox # [MỚI] Thêm QMessageBox
-from PyQt5.QtCore import Qt, QDateTime
+from PyQt5.QtCore import Qt, QDateTime, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QColor # [SỬA] Thêm import QColor
 
 # -------------------------------------------------------------------
@@ -54,10 +54,14 @@ class FaceRecognizeController:
         # [SỬA] Thêm biến lưu trữ thời gian
         self.session_start_time = None
         self.session_end_time = None
+        self.session_finalized = False
 
         # [MỚI] Thêm độ trễ điểm danh để giảm nhận nhầm
         self.attendance_delay_seconds = 5
         self.pending_recognitions = {}
+        self.auto_finalize_timer = QTimer()
+        self.auto_finalize_timer.setInterval(60_000)  # kiểm tra mỗi phút
+        self.auto_finalize_timer.timeout.connect(self.check_auto_finalize)
         
         # Ngưỡng nhận diện (cần tinh chỉnh)
         self.similarity_threshold = 0.6 
@@ -153,7 +157,9 @@ class FaceRecognizeController:
             # [SỬA] Reset thời gian
             self.session_start_time = None
             self.session_end_time = None
+            self.session_finalized = False
             self.pending_recognitions.clear()
+            self.auto_finalize_timer.stop()
         else:
             try:
                 # 1. Cập nhật thông tin buổi học
@@ -203,6 +209,29 @@ class FaceRecognizeController:
                 
             except Exception as e:
                 self.view.update_notice(f"Lỗi khi tải danh sách lớp: {e}", "error")
+            else:
+                self.session_finalized = False
+                self.restart_auto_finalize_timer()
+
+    def restart_auto_finalize_timer(self):
+        """Khởi động/ dừng timer auto chốt dựa trên dữ liệu hiện tại."""
+        self.auto_finalize_timer.stop()
+        if self.session_end_time and self.current_session_id is not None:
+            self.auto_finalize_timer.start()
+
+    def check_auto_finalize(self):
+        """Tự động chốt sổ nếu đã quá 15 phút sau giờ kết thúc."""
+        if (
+            self.session_finalized
+            or self.current_session_id is None
+            or self.session_end_time is None
+        ):
+            return
+        
+        today = datetime.today().date()
+        buffer_end = datetime.combine(today, self.session_end_time) + timedelta(minutes=15)
+        if datetime.now() >= buffer_end:
+            self.trigger_finalize(auto=True)
 
     def populate_roster_lists(self):
         """
@@ -352,11 +381,11 @@ class FaceRecognizeController:
                         text = f"{ma_sv} (Đang ghi...)"
                     else:
                         color = (0, 165, 255) # Cam
-                        text = f"{ma_sv} (Chờ {remaining:.1f}s)"
+                        text = f"{ma_sv} (Waiting {remaining:.1f}s)"
                 else:
                     # Đã điểm danh rồi
                     color = (0, 255, 0) # Xanh lá
-                    text = f"{ma_sv} (Da check-in)"
+                    text = f"{ma_sv} (Check-in Successfull)"
             else:
                 # Nhận diện được, nhưng không có trong lớp
                 color = (0, 255, 255) # Vàng
@@ -467,49 +496,81 @@ class FaceRecognizeController:
     # ==========================================================
     
     def handle_finalize_session(self):
+        """Người dùng chủ động nhấn nút chốt sổ."""
+        self.trigger_finalize(auto=False)
+
+    def trigger_finalize(self, auto=False):
         """
-        Xử lý sự kiện nhấn nút "Chốt sổ".
-        Hàm này sẽ gọi service để INSERT 'Vắng' cho tất cả SV
-        chưa được điểm danh trong buổi học này.
+        Thực thi logic chốt sổ (thủ công hoặc tự động).
+        auto=True sẽ bỏ qua hộp thoại xác nhận và chạy khi đủ điều kiện.
         """
         
         # 1. Kiểm tra đã chọn buổi học chưa
         if self.current_session_id is None:
-            self.view.update_notice("Vui lòng chọn buổi học trước khi chốt sổ.", "error")
-            QMessageBox.warning(self.view, "Lỗi", "Vui lòng chọn buổi học trước khi chốt sổ.")
+            if not auto:
+                self.view.update_notice("Vui lòng chọn buổi học trước khi chốt sổ.", "error")
+                QMessageBox.warning(self.view, "Lỗi", "Vui lòng chọn buổi học trước khi chốt sổ.")
             return
 
-        # 2. Kiểm tra xem camera có đang chạy không (không nên chốt sổ khi đang chạy)
+        # 2. Đảm bảo camera đã tắt
         if self.cap and self.cap.isOpened():
-            self.view.update_notice("Vui lòng tắt camera trước khi chốt sổ.", "warning")
-            QMessageBox.warning(self.view, "Cảnh báo", "Vui lòng tắt camera trước khi chốt sổ.")
+            if auto:
+                self.handle_close_camera()
+            else:
+                self.view.update_notice("Vui lòng tắt camera trước khi chốt sổ.", "warning")
+                QMessageBox.warning(self.view, "Cảnh báo", "Vui lòng tắt camera trước khi chốt sổ.")
+                return
+        
+        if self.session_finalized:
+            if not auto:
+                self.view.update_notice("Buổi học này đã được chốt trước đó.", "info")
             return
 
         # 3. Hỏi xác nhận người dùng
-        confirm_reply = QMessageBox.question(
-            self.view,
-            "Xác nhận Chốt sổ",
-            "Bạn có chắc chắn muốn chốt sổ buổi học này không?\n\n"
-            "Thao tác này sẽ tự động ghi 'Vắng' cho tất cả sinh viên "
-            "chưa được điểm danh (có mặt/đi muộn).\n\n"
-            "Bạn chỉ nên thực hiện việc này khi buổi học đã kết thúc.",
-            QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
-        )
+        if not auto:
+            confirm_reply = QMessageBox.question(
+                self.view,
+                "Xác nhận Chốt sổ",
+                "Bạn có chắc chắn muốn chốt sổ buổi học này không?\n\n"
+                "Thao tác này sẽ tự động ghi 'Vắng' cho tất cả sinh viên "
+                "chưa được điểm danh (có mặt/đi muộn).\n\n"
+                "Bạn chỉ nên thực hiện việc này khi buổi học đã kết thúc.",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.No
+            )
 
-        if confirm_reply == QMessageBox.No:
-            self.view.update_notice("Thao tác chốt sổ đã bị hủy.", "info")
-            return
+            if confirm_reply == QMessageBox.No:
+                self.view.update_notice("Thao tác chốt sổ đã bị hủy.", "info")
+                return
+        else:
+            self.view.update_notice("Tự động chốt sổ: Đã quá 15 phút sau giờ kết thúc.", "warning")
 
         # 4. Nếu người dùng đồng ý -> Gọi service
         try:
-            self.view.update_notice("Đang chốt sổ, vui lòng chờ...", "warning")
+            progress_msg = "Đang chốt sổ, vui lòng chờ..."
+            if auto:
+                progress_msg = "Hệ thống đang tự động chốt sổ..."
+            self.view.update_notice(progress_msg, "warning")
             
             success, message, count = finalize_attendance(self.current_session_id)
             
             if success:
-                self.view.update_notice(f"✅ {message}", "success")
-                QMessageBox.information(self.view, "Hoàn tất", f"Chốt sổ thành công.\nĐã ghi vắng cho {count} sinh viên.")
+                self.session_finalized = True
+                self.auto_finalize_timer.stop()
+                success_notice = f"✅ {message}"
+                self.view.update_notice(success_notice, "success")
+                if auto:
+                    # Với auto, hiển thị thông báo nhỏ để GV biết
+                    self.view.update_notice(
+                        f"Tự động chốt sổ thành công. Đã ghi vắng cho {count} sinh viên.",
+                        "success"
+                    )
+                else:
+                    QMessageBox.information(
+                        self.view,
+                        "Hoàn tất",
+                        f"Chốt sổ thành công.\nĐã ghi vắng cho {count} sinh viên."
+                    )
                 
                 # Cập nhật lại danh sách (dù không ảnh hưởng UI, nhưng cho đúng)
                 # self.student_roster = get_roster(self.current_session_id)

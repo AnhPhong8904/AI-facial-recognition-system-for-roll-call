@@ -131,7 +131,7 @@ def get_roster(session_id):
             DIEMDANH AS dd ON sv.ID_SV = dd.ID_SV AND bh.ID_BUOI = dd.ID_BUOI
         WHERE 
             bh.ID_BUOI = ?
-            AND sv.TRANG_THAI = 1
+            AND sv.TRANG_THAI = N'Đang học'
     """
     
     student_roster = {}

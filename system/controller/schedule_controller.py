@@ -141,6 +141,19 @@ class ScheduleController:
         if data["id_lop"] is None:
             self.view.show_message("Thiếu thông tin", "Bạn phải chọn một Lớp học.", level="warning")
             return
+
+        gio_bd = QTime.fromString(data["gio_bd"], "HH:mm")
+        gio_kt = QTime.fromString(data["gio_kt"], "HH:mm")
+        if not (gio_bd.isValid() and gio_kt.isValid()):
+            self.view.show_message("Thời gian không hợp lệ", "Vui lòng nhập giờ bắt đầu/kết thúc hợp lệ.", level="warning")
+            return
+        if gio_bd >= gio_kt:
+            self.view.show_message(
+                "Thời gian không hợp lệ",
+                "Giờ bắt đầu phải nhỏ hơn giờ kết thúc.",
+                level="warning"
+            )
+            return
             
         # 3. Gọi Service
         success, message = schedule_service.add_schedule(data)
@@ -160,6 +173,19 @@ class ScheduleController:
         # 2. Kiểm tra
         if not data["id_buoi"]:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một lịch học từ bảng để cập nhật.", level="warning")
+            return
+
+        gio_bd = QTime.fromString(data["gio_bd"], "HH:mm")
+        gio_kt = QTime.fromString(data["gio_kt"], "HH:mm")
+        if not (gio_bd.isValid() and gio_kt.isValid()):
+            self.view.show_message("Thời gian không hợp lệ", "Vui lòng nhập giờ bắt đầu/kết thúc hợp lệ.", level="warning")
+            return
+        if gio_bd >= gio_kt:
+            self.view.show_message(
+                "Thời gian không hợp lệ",
+                "Giờ bắt đầu phải nhỏ hơn giờ kết thúc.",
+                level="warning"
+            )
             return
 
         # 3. Gọi Service
