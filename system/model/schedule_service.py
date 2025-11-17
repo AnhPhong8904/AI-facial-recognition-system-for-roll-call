@@ -114,7 +114,7 @@ def get_all_schedules():
         return formatted_rows
 
     except Exception as e:
-        print(f"Lỗi khi tải danh sách buổi học (service): {e}")
+        print(f"Lỗi khi tải danh sách lịch học (service): {e}")
         return None
     finally:
         if conn:
@@ -152,12 +152,12 @@ def add_schedule(data):
         
         cursor.execute(sql_insert, params)
         conn.commit()
-        return True, "Thêm buổi học thành công."
+        return True, "Thêm lịch học thành công."
 
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Lỗi khi thêm buổi học (service): {e}")
+        print(f"Lỗi khi thêm lịch học (service): {e}")
         return False, str(e)
     finally:
         if conn:
@@ -200,7 +200,7 @@ def update_schedule(data):
         cursor.execute(sql_update, params)
 
         if cursor.rowcount == 0:
-            raise Exception("Không tìm thấy buổi học để cập nhật (hoặc dữ liệu không đổi).")
+            raise Exception("Không tìm thấy lịch học để cập nhật (hoặc dữ liệu không đổi).")
             
         conn.commit()
         return True, "Cập nhật thành công."
@@ -208,7 +208,7 @@ def update_schedule(data):
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Lỗi khi cập nhật buổi học (service): {e}")
+        print(f"Lỗi khi cập nhật lịch học (service): {e}")
         return False, str(e)
     finally:
         if conn:
@@ -235,21 +235,21 @@ def delete_schedule(id_buoi):
         # Bước 1: Kiểm tra ràng buộc (bảng DIEMDANH)
         cursor.execute("SELECT 1 FROM DIEMDANH WHERE ID_BUOI = ?", (id_buoi,))
         if cursor.fetchone():
-            raise Exception("Không thể xóa. Buổi học này đã có dữ liệu điểm danh.")
+            raise Exception("Không thể xóa. Lịch học này đã có dữ liệu điểm danh.")
 
         # Bước 2: Xóa BUOIHOC
         cursor.execute("DELETE FROM BUOIHOC WHERE ID_BUOI = ?", (id_buoi,))
         
         if cursor.rowcount == 0:
-             raise Exception("Không tìm thấy buổi học để xóa.")
+             raise Exception("Không tìm thấy lịch học để xóa.")
 
         conn.commit()
-        return True, "Xóa buổi học thành công."
+        return True, "Xóa lịch học thành công."
 
     except Exception as e:
         if conn:
             conn.rollback()
-        print(f"Lỗi khi xóa buổi học (service): {e}")
+        print(f"Lỗi khi xóa lịch học (service): {e}")
         return False, str(e)
     finally:
         if conn:
@@ -318,7 +318,7 @@ def search_schedules(search_by, keyword):
         return formatted_rows
 
     except Exception as e:
-        print(f"Lỗi khi tìm kiếm buổi học (service): {e}")
+        print(f"Lỗi khi tìm kiếm lịch học (service): {e}")
         return None
     finally:
         if conn:

@@ -272,10 +272,10 @@ class HomeWindow(QWidget):
                     self.buttons[btn_name].setEnabled(False)
                     self.buttons[btn_name].setToolTip("Bạn không có quyền truy cập mục này")
         
-        if role == 'Admin':
-            # Admin (ví dụ) không cần điểm danh
-            buttons_to_disable = ["Điểm danh"]
-            for btn_name in buttons_to_disable:
-                if btn_name in self.buttons:
-                    self.buttons[btn_name].setEnabled(False)
-                    self.buttons[btn_name].setToolTip("Chức năng này dành cho Giảng viên")
+        # if role == 'Admin':
+        #     # Admin (ví dụ) không cần điểm danh
+        #     buttons_to_disable = ["Điểm danh"]
+        #     for btn_name in buttons_to_disable:
+        #         if btn_name in self.buttons:
+        #             self.buttons[btn_name].setEnabled(False)
+        #             self.buttons[btn_name].setToolTip("Chức năng này dành cho Giảng viên")

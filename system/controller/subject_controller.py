@@ -328,7 +328,7 @@ class SubjectController:
 
         confirm = self.view.show_message("Xác nhận xóa", 
                                          f"Bạn có chắc chắn muốn xóa Lớp học (ID: {id_lop}) không?\n"
-                                         "Hành động này sẽ xóa TẤT CẢ các buổi học liên quan.",
+                                         "Hành động này sẽ xóa TẤT CẢ các lịch học liên quan.",
                                          level="question")
         
         if confirm != QMessageBox.Yes:

@@ -69,7 +69,7 @@ class ScheduleController:
 
     def load_all_schedules(self):
         """Tải và hiển thị tất cả buổi học lên bảng"""
-        print("Đang tải danh sách buổi học...")
+        print("Đang tải danh sách lịch học...")
         data = schedule_service.get_all_schedules()
         self.view.populate_table(data)
         self.view.search_input.clear()
@@ -159,7 +159,7 @@ class ScheduleController:
 
         # 2. Kiểm tra
         if not data["id_buoi"]:
-            self.view.show_message("Chưa chọn", "Vui lòng chọn một buổi học từ bảng để cập nhật.", level="warning")
+            self.view.show_message("Chưa chọn", "Vui lòng chọn một lịch học từ bảng để cập nhật.", level="warning")
             return
 
         # 3. Gọi Service
@@ -178,12 +178,12 @@ class ScheduleController:
         id_buoi = self.view.hidden_id_buoi.text()
         
         if not id_buoi:
-            self.view.show_message("Chưa chọn", "Vui lòng chọn một buổi học từ bảng để xóa.", level="warning")
+            self.view.show_message("Chưa chọn", "Vui lòng chọn một lịch học từ bảng để xóa.", level="warning")
             return
 
         # 2. Hộp thoại XÁC NHẬN
         confirm = self.view.show_message("Xác nhận xóa", 
-                                         f"Bạn có chắc chắn muốn xóa buổi học (ID: {id_buoi}) không?",
+                                         f"Bạn có chắc chắn muốn xóa lịch học (ID: {id_buoi}) không?",
                                          level="question")
         
         if confirm != QMessageBox.Yes:
@@ -213,7 +213,7 @@ class ScheduleController:
             self.view.show_message("Thiếu thông tin", "Vui lòng nhập từ khóa tìm kiếm.", level="warning")
             return
             
-        print(f"Đang tìm kiếm buổi học: {search_by} - {keyword}")
+        print(f"Đang tìm kiếm lịch học: {search_by} - {keyword}")
         result_data = schedule_service.search_schedules(search_by, keyword)
         
         if result_data is None:
