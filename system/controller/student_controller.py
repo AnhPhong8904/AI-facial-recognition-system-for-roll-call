@@ -24,6 +24,7 @@ class StudentController:
         # Biến lưu trữ Sinh viên đang được chọn
         self.selected_ma_sv = None
         self.selected_id_sv = None # Cần ID_SV để Đăng ký/Tải
+        self.selected_student_active = False
         
         # Kết nối các nút và sự kiện
         self.connect_signals()
@@ -106,6 +107,7 @@ class StudentController:
         lop_hoc = self.view.table_student.item(selected_row, 8).text()
         trang_thai_str = self.view.table_student.item(selected_row, 9).text()
         
+        self.selected_student_active = (trang_thai_str == "Đang học")
         trang_thai_bit = 1 if trang_thai_str == "Đang học" else 0
         
         # Chuyển đổi ngày sinh (từ dd-MM-yyyy sang yyyy-MM-dd)
@@ -135,7 +137,16 @@ class StudentController:
             # 4. Tải Lớp học Đã đăng ký (Bảng Nửa dưới)
             self.load_registrations_for_student(self.selected_id_sv)
             # 5. Tải Lớp học Chưa đăng ký (ComboBox)
-            self.load_available_classes(self.selected_id_sv)
+            if self.selected_student_active:
+                self.load_available_classes(self.selected_id_sv)
+            else:
+                self.view.populate_lophoc_combo(None)
+                self.view.show_message(
+                    "Cảnh báo",
+                    f"Sinh viên {ho_ten} đang bị đình chỉ/không còn học. Không thể đăng ký thêm lớp.",
+                    level="warning"
+                )
+            self.update_registration_controls_state(self.selected_student_active)
         else:
             self.view.show_message("Lỗi", f"Không tìm thấy ID_SV cho Mã {ma_sv}", level="error")
             self.clear_student_form_and_detail()
@@ -148,6 +159,8 @@ class StudentController:
         self.view.populate_lophoc_combo(None)
         self.selected_ma_sv = None
         self.selected_id_sv = None
+        self.selected_student_active = False
+        self.update_registration_controls_state(False)
 
     # ==========================================================
     # HÀM XỬ LÝ CRUD SINH VIÊN (Giữ nguyên)
@@ -246,7 +259,9 @@ class StudentController:
 
     def load_available_classes(self, id_sv):
         """Tải các lớp SV CHƯA đăng ký (ComboBox)"""
-        if id_sv is None: return
+        if id_sv is None or not self.selected_student_active:
+            self.view.populate_lophoc_combo(None)
+            return
         
         data = student_service.get_available_classes_for_student(id_sv)
         self.view.populate_lophoc_combo(data)
@@ -257,6 +272,14 @@ class StudentController:
         
         if self.selected_id_sv is None:
             self.view.show_message("Lỗi", "Chưa chọn sinh viên.", level="error")
+            return
+            
+        if not self.selected_student_active:
+            self.view.show_message(
+                "Bị đình chỉ",
+                "Sinh viên này đang bị đình chỉ/không còn học nên không thể đăng ký lớp.",
+                level="warning"
+            )
             return
             
         if id_lop is None:
@@ -302,6 +325,19 @@ class StudentController:
             self.load_available_classes(self.selected_id_sv)
         else:
             self.view.show_message("Thất bại", message, level="error")
+
+    def update_registration_controls_state(self, allow_registration):
+        """
+        Bật/tắt nhóm đăng ký lớp dựa trên trạng thái sinh viên.
+        """
+        self.view.btn_add_registration.setEnabled(allow_registration)
+        self.view.combo_lophoc.setEnabled(allow_registration)
+        if allow_registration:
+            self.view.btn_add_registration.setToolTip("")
+        else:
+            self.view.btn_add_registration.setToolTip(
+                "Sinh viên bị đình chỉ/không còn học nên không thể đăng ký lớp mới."
+            )
 
     # ==========================================================
     # HÀM XỬ LÝ NHẬN DIỆN (ĐÃ CẬP NHẬT)

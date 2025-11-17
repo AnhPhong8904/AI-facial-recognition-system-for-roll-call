@@ -54,6 +54,10 @@ class FaceRecognizeController:
         # [SỬA] Thêm biến lưu trữ thời gian
         self.session_start_time = None
         self.session_end_time = None
+
+        # [MỚI] Thêm độ trễ điểm danh để giảm nhận nhầm
+        self.attendance_delay_seconds = 5
+        self.pending_recognitions = {}
         
         # Ngưỡng nhận diện (cần tinh chỉnh)
         self.similarity_threshold = 0.6 
@@ -149,6 +153,7 @@ class FaceRecognizeController:
             # [SỬA] Reset thời gian
             self.session_start_time = None
             self.session_end_time = None
+            self.pending_recognitions.clear()
         else:
             try:
                 # 1. Cập nhật thông tin buổi học
@@ -190,6 +195,7 @@ class FaceRecognizeController:
                 
                 # 3. Cập nhật danh sách "Có mặt" / "Vắng"
                 self.populate_roster_lists()
+                self.pending_recognitions.clear()
                 
                 # 4. Cho phép mở camera
                 if self.recognizer: # Chỉ cho mở nếu AI đã tải thành công
@@ -267,6 +273,7 @@ class FaceRecognizeController:
         if self.cap:
             self.cap.release()
         self.cap = None
+        self.pending_recognitions.clear()
         self.view.update_frame_on_ui(None) # Hiển thị "CAMERA TẮT"
         self.view.set_camera_buttons_state(is_running=False)
         self.view.update_notice("Camera đã tắt.", "warning")
@@ -338,14 +345,14 @@ class FaceRecognizeController:
                 
                 # [QUAN TRỌNG] Kiểm tra xem SV đã điểm danh CHƯA
                 if student_data["status"] == "Vắng":
-                    # --- CHUẨN BỊ ĐIỂM DANH ---
-                    # (Hàm mark_student_present giờ sẽ kiểm tra thời gian)
-                    # [SỬA] Gọi hàm điểm danh (hàm này sẽ tự xử lý logic thời gian)
-                    self.mark_student_present(ma_sv, cropped_face_img)
-                    
-                    # Tạm thời vẫn vẽ màu xanh, hàm mark_student_present sẽ cập nhật UI notice
-                    color = (0, 255, 0) # Xanh lá
-                    text = f"{ma_sv} (Checking...)"
+                    ready, remaining = self.check_attendance_delay(ma_sv)
+                    if ready:
+                        self.mark_student_present(ma_sv, cropped_face_img)
+                        color = (0, 255, 0) # Xanh lá
+                        text = f"{ma_sv} (Đang ghi...)"
+                    else:
+                        color = (0, 165, 255) # Cam
+                        text = f"{ma_sv} (Chờ {remaining:.1f}s)"
                 else:
                     # Đã điểm danh rồi
                     color = (0, 255, 0) # Xanh lá
@@ -368,6 +375,8 @@ class FaceRecognizeController:
         Hàm quan trọng: Kiểm tra thời gian, Cập nhật CSDL, State, và UI.
         [SỬA] Toàn bộ hàm này được viết lại để xử lý logic thời gian.
         """
+        # Đảm bảo xóa trạng thái chờ
+        self.pending_recognitions.pop(ma_sv, None)
         # 1. Kiểm tra điều kiện đầu vào
         if self.current_session_id is None or self.session_start_time is None:
             self.view.update_notice("Lỗi: Chưa chọn buổi học hoặc thiếu thông tin giờ.", "error")
@@ -432,6 +441,26 @@ class FaceRecognizeController:
             self.populate_roster_lists()
         else:
             self.view.update_notice(f"❌ Lỗi khi ghi danh {ma_sv}: {message}", "error")
+
+    def check_attendance_delay(self, ma_sv):
+        """
+        Đảm bảo nhận diện ổn định một vài giây trước khi điểm danh.
+        Trả về (ready: bool, remaining_seconds: float)
+        """
+        now = datetime.now()
+        first_seen = self.pending_recognitions.get(ma_sv)
+
+        if first_seen is None:
+            self.pending_recognitions[ma_sv] = now
+            return False, float(self.attendance_delay_seconds)
+
+        elapsed = (now - first_seen).total_seconds()
+        if elapsed >= self.attendance_delay_seconds:
+            self.pending_recognitions.pop(ma_sv, None)
+            return True, 0.0
+
+        remaining = self.attendance_delay_seconds - elapsed
+        return False, max(0.0, remaining)
 
     # ==========================================================
     # [MỚI] HÀM XỬ LÝ CHỐT SỔ (GHI VẮNG)
