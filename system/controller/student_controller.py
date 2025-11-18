@@ -109,11 +109,14 @@ class StudentController:
         
         self.selected_student_active = (trang_thai_str == "Đang học")
         
-        # Chuyển đổi ngày sinh (từ dd-MM-yyyy sang yyyy-MM-dd)
-        try:
-            ngay_sinh_sql = QDate.fromString(ngay_sinh_str_ddmmyyyy, "dd-MM-yyyy").toString("yyyy-MM-dd")
-        except:
-            ngay_sinh_sql = ""
+        # Chuyển đổi ngày sinh về định dạng yyyy-MM-dd với nhiều format fallback
+        ngay_sinh_qdate = QDate.fromString(ngay_sinh_str_ddmmyyyy, "dd-MM-yyyy")
+        if not ngay_sinh_qdate.isValid():
+            ngay_sinh_qdate = QDate.fromString(ngay_sinh_str_ddmmyyyy, "yyyy-MM-dd")
+        if not ngay_sinh_qdate.isValid():
+            ngay_sinh_qdate = QDate.fromString(ngay_sinh_str_ddmmyyyy, Qt.ISODate)
+
+        ngay_sinh_sql = ngay_sinh_qdate.toString("yyyy-MM-dd") if ngay_sinh_qdate.isValid() else ""
 
         # 2. Điền vào Form (Bên trái)
         data = {

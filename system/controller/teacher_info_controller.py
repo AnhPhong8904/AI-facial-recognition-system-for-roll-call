@@ -79,10 +79,11 @@ class TeacherController:
             
             for col_index, item in enumerate(row_data):
                 cell_value = ""
-                if isinstance(item, (datetime.date)):
-                    # Định dạng ngày sinh
+                if isinstance(item, (datetime.date, datetime.datetime)):
+                    # Định dạng ngày sinh (service đã format sẵn, nhưng vẫn xử lý nếu có)
                     cell_value = item.strftime("%d/%m/%Y")
                 else:
+                    # Service đã format ngày sinh thành string, dùng trực tiếp
                     cell_value = str(item) if item is not None else ""
                 
                 cell_item = QTableWidgetItem(cell_value)
@@ -132,10 +133,20 @@ class TeacherController:
             else:
                 self.view.inputs["Giới tính:"].setCurrentIndex(0) # Về rỗng
 
-            # Xử lý QDateEdit Ngày sinh
+            # Xử lý QDateEdit Ngày sinh với nhiều format fallback
             if ngay_sinh_str:
-                date = QDate.fromString(ngay_sinh_str, "dd/MM/yyyy")
-                self.view.inputs["Ngày sinh:"].setDate(date)
+                ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, "dd/MM/yyyy")
+                if not ngay_sinh_qdate.isValid():
+                    ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, "dd-MM-yyyy")
+                if not ngay_sinh_qdate.isValid():
+                    ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, "yyyy-MM-dd")
+                if not ngay_sinh_qdate.isValid():
+                    ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, Qt.ISODate)
+                
+                if ngay_sinh_qdate.isValid():
+                    self.view.inputs["Ngày sinh:"].setDate(ngay_sinh_qdate)
+                else:
+                    self.view.inputs["Ngày sinh:"].setDate(QDate(2000, 1, 1))
             else:
                 self.view.inputs["Ngày sinh:"].setDate(QDate(2000, 1, 1))
             

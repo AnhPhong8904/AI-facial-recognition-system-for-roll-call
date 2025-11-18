@@ -313,7 +313,16 @@ class StudentWindow(QWidget):
         
         ngay_sinh_str = data.get("ngay_sinh", "")
         if ngay_sinh_str:
-            self.inputs["Ngày sinh:"].setDate(QDate.fromString(ngay_sinh_str, "yyyy-MM-dd"))
+            ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, "yyyy-MM-dd")
+            if not ngay_sinh_qdate.isValid():
+                ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, "dd-MM-yyyy")
+            if not ngay_sinh_qdate.isValid():
+                ngay_sinh_qdate = QDate.fromString(ngay_sinh_str, Qt.ISODate)
+
+            if ngay_sinh_qdate.isValid():
+                self.inputs["Ngày sinh:"].setDate(ngay_sinh_qdate)
+            else:
+                self.inputs["Ngày sinh:"].setDate(QDate(2000, 1, 1))
         else:
             self.inputs["Ngày sinh:"].setDate(QDate(2000, 1, 1))
 

@@ -1,6 +1,29 @@
 import pyodbc
 from model.connectdb import get_db_connection
-import datetime # Thêm import datetime
+from datetime import date, datetime
+
+def _format_ngay_sinh(value):
+    """
+    Chuẩn hóa giá trị ngày sinh thành chuỗi dd/MM/yyyy để hiển thị.
+    Hỗ trợ các kiểu date/datetime và chuỗi (yyyy-MM-dd hoặc dd/MM/yyyy).
+    """
+    if value is None:
+        return ""
+
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%d/%m/%Y")
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y"):
+            try:
+                parsed = datetime.strptime(cleaned, fmt)
+                return parsed.strftime("%d/%m/%Y")
+            except ValueError:
+                continue
+        return cleaned  # Trả lại nguyên bản nếu không parse được
+
+    return str(value)
 
 def get_all_teachers():
     """
@@ -31,7 +54,15 @@ def get_all_teachers():
         
         cursor.execute(query)
         rows = cursor.fetchall()
-        return rows
+        
+        # Chuyển đổi ngày sinh thành chuỗi dd/MM/yyyy
+        formatted_rows = []
+        for row in rows:
+            row_list = list(row)
+            row_list[5] = _format_ngay_sinh(row_list[5])  # Cột NGAY_SINH (index 5)
+            formatted_rows.append(tuple(row_list))
+            
+        return formatted_rows
         
     except Exception as e:
         print(f"Lỗi khi tải danh sách GV (teacher_service): {e}")
@@ -267,7 +298,15 @@ def search_teachers(criteria, term):
         
         cursor.execute(query, params)
         rows = cursor.fetchall()
-        return rows
+        
+        # Chuyển đổi ngày sinh thành chuỗi dd/MM/yyyy
+        formatted_rows = []
+        for row in rows:
+            row_list = list(row)
+            row_list[5] = _format_ngay_sinh(row_list[5])  # Cột NGAY_SINH (index 5)
+            formatted_rows.append(tuple(row_list))
+            
+        return formatted_rows
         
     except Exception as e:
         print(f"Lỗi khi tìm kiếm GV (teacher_service): {e}")

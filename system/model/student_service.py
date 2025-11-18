@@ -1,10 +1,33 @@
 import pyodbc
 from model.connectdb import get_db_connection
-from datetime import date
+from datetime import date, datetime
 
 # ==========================================================
 # --- PHẦN 1: HÀM XỬ LÝ SINH VIÊN (Bảng SINHVIEN) ---
 # ==========================================================
+
+def _format_ngay_sinh(value):
+    """
+    Chuẩn hóa giá trị ngày sinh thành chuỗi dd-MM-yyyy để hiển thị.
+    Hỗ trợ các kiểu date/datetime và chuỗi (yyyy-MM-dd hoặc dd-MM-yyyy).
+    """
+    if value is None:
+        return ""
+
+    if isinstance(value, (datetime, date)):
+        return value.strftime("%d-%m-%Y")
+
+    if isinstance(value, str):
+        cleaned = value.strip()
+        for fmt in ("%Y-%m-%d", "%d-%m-%Y"):
+            try:
+                parsed = datetime.strptime(cleaned, fmt)
+                return parsed.strftime("%d-%m-%Y")
+            except ValueError:
+                continue
+        return cleaned  # Trả lại nguyên bản nếu không parse được
+
+    return str(value)
 
 def get_all_students():
     """
@@ -33,8 +56,7 @@ def get_all_students():
         formatted_rows = []
         for row in rows:
             row_list = list(row)
-            if isinstance(row_list[3], date): # Cột NGAY_SINH
-                row_list[3] = row_list[3].strftime("%d-%m-%Y")
+            row_list[3] = _format_ngay_sinh(row_list[3])  # Cột NGAY_SINH
             formatted_rows.append(tuple(row_list))
             
         return formatted_rows
@@ -227,8 +249,7 @@ def search_students(search_by, keyword):
         formatted_rows = []
         for row in rows:
             row_list = list(row)
-            if isinstance(row_list[3], date): # Cột NGAY_SINH
-                row_list[3] = row_list[3].strftime("%d-%m-%Y")
+            row_list[3] = _format_ngay_sinh(row_list[3])  # Cột NGAY_SINH
             formatted_rows.append(tuple(row_list))
             
         return formatted_rows
