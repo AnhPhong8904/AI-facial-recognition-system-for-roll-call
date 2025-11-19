@@ -10,6 +10,7 @@ from model.ai_service import AIService # <-- Đã import AIService
 from datetime import date 
 
 class StudentController:
+    REQUIRED_EMAIL_DOMAIN = "@eaut.edu.vn"
     def __init__(self, on_close_callback):
         """
         Khởi tạo controller
@@ -185,6 +186,14 @@ class StudentController:
                                        level="warning")
                 return
 
+        if not self._is_valid_email(data.get("email", "")):
+            self.view.show_message(
+                "Lỗi nhập liệu",
+                f"Email không hợp lệ!\nEmail phải kết thúc bằng đuôi '{self.REQUIRED_EMAIL_DOMAIN}'.",
+                level="warning"
+            )
+            return
+
         # 3. Gọi Service thêm mới
         success, message = student_service.add_student(data)
         
@@ -211,6 +220,14 @@ class StudentController:
                                        level="warning")
                 return
 
+        if not self._is_valid_email(data.get("email", "")):
+            self.view.show_message(
+                "Lỗi nhập liệu",
+                f"Email không hợp lệ!\nEmail phải kết thúc bằng đuôi '{self.REQUIRED_EMAIL_DOMAIN}'.",
+                level="warning"
+            )
+            return
+
         # 3. Gọi Service cập nhật
         success, message = student_service.update_student(data)
         
@@ -219,6 +236,14 @@ class StudentController:
             self.load_all_students()
         else:
             self.view.show_message("Thất bại", message, level="error")
+
+    def _is_valid_email(self, email):
+        """
+        Kiểm tra email có hợp lệ với domain yêu cầu không.
+        """
+        if not email:
+            return False
+        return email.strip().endswith(self.REQUIRED_EMAIL_DOMAIN)
 
     def handle_delete_student(self):
         """Xử lý Xóa sinh viên (VÀ TẤT CẢ ĐĂNG KÝ/ĐIỂM DANH)"""

@@ -219,10 +219,32 @@ class TeacherController:
         """Xử lý Thêm mới giảng viên"""
         data = self.get_data_from_form()
 
+        # 1. Kiểm tra thông tin bắt buộc
         if not data['ma_gv'] or not data['ho_ten'] or not data['ten_dang_nhap'] or not data['mat_khau']:
             self.show_message("Thiếu thông tin", "Mã giảng viên, Họ tên, Tên đăng nhập và Mật khẩu là bắt buộc.", level="warning")
             return
+
+        # 2. [MỚI] Kiểm tra Số điện thoại (Bắt đầu bằng 0, đủ 10 số)
+        sdt = data.get('sdt', '')
+        if sdt:
+            if not sdt.isdigit() or len(sdt) != 10 or not sdt.startswith('0'):
+                self.show_message("Lỗi nhập liệu", 
+                                  "Số điện thoại không hợp lệ!\nSĐT phải bắt đầu bằng số '0' và có đúng 10 chữ số.", 
+                                  level="warning")
+                return
+
+        # 3. [MỚI] Kiểm tra Email (Phải đúng đuôi quy định)
+        email = data.get('email', '')
+        REQUIRED_DOMAIN = "@eaut.edu.vn" # <--- BẠN SỬA ĐUÔI EMAIL MONG MUỐN TẠI ĐÂY (VD: @utc.edu.vn)
+        
+        if email:
+            if not email.endswith(REQUIRED_DOMAIN):
+                self.show_message("Lỗi nhập liệu", 
+                                  f"Email không đúng định dạng!\nEmail phải kết thúc bằng đuôi '{REQUIRED_DOMAIN}'", 
+                                  level="warning")
+                return
             
+        # 4. Gọi Service
         try:
             success, message = teacher_service.add_teacher(data)
             if success:
@@ -242,14 +264,36 @@ class TeacherController:
 
         data = self.get_data_from_form()
         
+        # 1. Kiểm tra thông tin bắt buộc
         if not data['ma_gv'] or not data['ho_ten']:
             self.show_message("Thiếu thông tin", "Mã giảng viên và Họ tên là bắt buộc.", level="warning")
             return
-            
-        # Nếu không nhập mật khẩu mới, gửi None
+
+        # 2. [MỚI] Kiểm tra Số điện thoại (Tương tự như trên)
+        sdt = data.get('sdt', '')
+        if sdt:
+            if not sdt.isdigit() or len(sdt) != 10 or not sdt.startswith('0'):
+                self.show_message("Lỗi nhập liệu", 
+                                  "Số điện thoại không hợp lệ!\nSĐT phải bắt đầu bằng số '0' và có đúng 10 chữ số.", 
+                                  level="warning")
+                return
+
+        # 3. [MỚI] Kiểm tra Email (Tương tự như trên)
+        email = data.get('email', '')
+        REQUIRED_DOMAIN = "@eaut.edu.vn" # <--- BẠN SỬA ĐUÔI EMAIL MONG MUỐN TẠI ĐÂY
+        
+        if email:
+            if not email.endswith(REQUIRED_DOMAIN):
+                self.show_message("Lỗi nhập liệu", 
+                                  f"Email không đúng định dạng!\nEmail phải kết thúc bằng đuôi '{REQUIRED_DOMAIN}'", 
+                                  level="warning")
+                return
+
+        # 4. Xử lý mật khẩu rỗng (giữ nguyên mật khẩu cũ)
         if not data['mat_khau']:
             data['mat_khau'] = None 
             
+        # 5. Gọi Service
         try:
             success, message = teacher_service.update_teacher(
                 self.current_teacher_id_gv, 
