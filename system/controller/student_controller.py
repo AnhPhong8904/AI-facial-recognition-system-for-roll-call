@@ -175,7 +175,17 @@ class StudentController:
         if not data["ma_sv"] or not data["ho_ten"]:
             self.view.show_message("Thiếu thông tin", "Mã sinh viên và Họ tên là bắt buộc.", level="warning")
             return
-            
+
+        # [SỬA LẠI] Kiểm tra Số điện thoại: Phải là số + Đủ 10 ký tự + Bắt đầu bằng '0'
+        sdt = data.get("sdt", "")
+        if sdt:
+            if not sdt.isdigit() or len(sdt) != 10 or not sdt.startswith('0'):
+                self.view.show_message("Lỗi nhập liệu", 
+                                       "Số điện thoại không hợp lệ!\nSĐT phải bắt đầu bằng số '0' và có đúng 10 chữ số.", 
+                                       level="warning")
+                return
+
+        # 3. Gọi Service thêm mới
         success, message = student_service.add_student(data)
         
         if success:
@@ -192,6 +202,16 @@ class StudentController:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một sinh viên từ bảng để cập nhật.", level="warning")
             return
 
+        # [SỬA LẠI] Kiểm tra Số điện thoại tương tự như trên
+        sdt = data.get("sdt", "")
+        if sdt:
+            if not sdt.isdigit() or len(sdt) != 10 or not sdt.startswith('0'):
+                self.view.show_message("Lỗi nhập liệu", 
+                                       "Số điện thoại không hợp lệ!\nSĐT phải bắt đầu bằng số '0' và có đúng 10 chữ số.", 
+                                       level="warning")
+                return
+
+        # 3. Gọi Service cập nhật
         success, message = student_service.update_student(data)
         
         if success:
