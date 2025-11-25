@@ -7,6 +7,9 @@ import glob
 import numpy as np
 import sys
 
+# Xác định thư mục gốc dự án (lùi 1 cấp từ AI_model)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # --- Import các module của bạn ---
 try:
     from Recognition.torch_recognizer import TorchRecognizer
@@ -17,8 +20,9 @@ except ImportError as e:
     exit()
 
 # --- Cấu hình ---
-DATASET_PATH = r"D:\AI-facial-recognition-system-for-roll-call\dataset"
-MODEL_PATH = "models/face_prototypes.pth"
+DATASET_PATH = os.path.join(BASE_DIR, "dataset")
+MODEL_DIR = os.path.join(BASE_DIR, "system", "models")
+MODEL_PATH = os.path.join(MODEL_DIR, "face_prototypes.pth")
 
 # -----------------
 
@@ -122,8 +126,7 @@ else:
     
     print("\n--- HOÀN TẤT HUẤN LUYỆN (THÊM) ---")
 
-if not os.path.exists("models"):
-    os.makedirs("models")
+os.makedirs(MODEL_DIR, exist_ok=True)
     
 # 7. LƯU LẠI TOÀN BỘ MODEL (CŨ + MỚI)
 try:

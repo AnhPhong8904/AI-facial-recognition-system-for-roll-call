@@ -3,8 +3,10 @@
 import sys
 from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem
 from PyQt5.QtCore import Qt, QDate
+import os
 # Sửa tên file import (nếu cần)
 from ui.student_info import StudentWindow
+from ui.training_dialog import TrainingMonitorDialog
 from model import student_service 
 from model.ai_service import AIService # <-- Đã import AIService
 from datetime import date 
@@ -391,63 +393,54 @@ class StudentController:
     # ==========================================================
     
     def handle_take_photo(self):
-        """XHandle_take_photo (ĐÃ CẬP NHẬT)"""
+        """Xử lý chụp ảnh (Thông báo gọn)"""
         ma_sv = self.view.get_selected_ma_sv()
         if not ma_sv:
-            self.view.show_message("Chưa chọn", "Vui lòng chọn một sinh viên từ bảng.", level="warning")
+            self.view.show_message("Chưa chọn", "Vui lòng chọn sinh viên cần lấy dữ liệu.", level="warning")
             return
             
-        # Hỏi xác nhận trước khi mở camera
+        # Hỏi xác nhận ngắn gọn
         confirm = self.view.show_message("Xác nhận", 
-                                         f"Bạn sắp mở camera để thu thập dữ liệu cho: {ma_sv}\n"
-                                         "Vui lòng đảm bảo camera sẵn sàng và làm theo hướng dẫn trên cửa sổ camera (nhấn 'k' để chụp).\n\nNhấn 'Yes' để tiếp tục.",
+                                         f"Mở camera thu thập dữ liệu cho: {ma_sv}?",
                                          level="question")
         
         if confirm != QMessageBox.Yes:
             return
 
-        # Hiển thị thông báo chờ (vì script đang chạy)
-        self.view.show_message("Đang xử lý", 
-                                "Đang khởi động camera...\n"
-                                "Vui lòng xem cửa sổ Terminal hoặc cửa sổ Camera bật lên.", 
-                                level="info")
-        
-        # Gọi service để chạy script
-        # self.ai_service đã được khởi tạo trong __init__
-        success, message = self.ai_service.start_data_collection(ma_sv)
-        
-        # Hiển thị kết quả
-        if success:
-            self.view.show_message("Hoàn tất", message, level="info")
-        else:
-            self.view.show_message("Thất bại", message, level="error")
-
-    def handle_train_model(self):
-        """Xử lý khi nhấn nút Huấn luyện (ĐÃ CẬP NHẬT)"""
-        
-        # Cảnh báo người dùng về việc đơ giao diện
-        confirm = self.view.show_message("Xác nhận Huấn luyện", 
-                                         "Bạn có chắc chắn muốn huấn luyện lại model không?\n\n"
-                                         "QUAN TRỌNG: Quá trình này có thể mất vài phút và sẽ làm GIAO DIỆN BỊ ĐƠ (FREEZE) cho đến khi hoàn tất.\n"
-                                         "Đây là hành động bình thường, vui lòng chờ.",
-                                         level="question")
-        if confirm != QMessageBox.Yes:
-            return
-
-        # Hiển thị thông báo chờ (RẤT QUAN TRỌNG)
-        # (Lưu ý: hàm show_message của bạn phải là loại không-chặn (non-blocking)
-        # Nếu nó là blocking, nó sẽ không hiện lên kịp)
-        self.view.show_message("Đang huấn luyện", 
-                                "Bắt đầu huấn luyện... Vui lòng chờ.\n"
-                                "Giao diện sẽ bị đơ (KHÔNG PHẢI LỖI) trong ít phút.\n"
-                                "Xin vui lòng KHÔNG tắt ứng dụng.", 
-                                level="info")
+        # Thông báo trạng thái ngắn
+        # (Lưu ý: Nếu hàm show_message chặn luồng (blocking), dòng này sẽ hiện xong mới chạy tiếp)
+        print("Đang khởi động camera...") 
         
         # Gọi service
-        success, message = self.ai_service.start_training()
+        success, message = self.ai_service.start_data_collection(ma_sv)
         
-        # Hiển thị kết quả
+        # Kết quả
         if success:
-            self.view.show_message("Hoàn tất", message, level="info")
+            self.view.show_message("Hoàn tất", "Thu thập dữ liệu thành công.", level="info")
         else:
-            self.view.show_message("Thất bại", message, level="error")
+            self.view.show_message("Lỗi", message, level="error")
+
+    def handle_train_model(self):
+        """Xử lý khi nhấn nút Huấn luyện (MỚI)"""
+        
+        # 1. Xác nhận
+        confirm = self.view.show_message("Huấn luyện AI", 
+                                         "Bạn có muốn bắt đầu huấn luyện model không?",
+                                         level="question")
+        if confirm != QMessageBox.Yes:
+            return
+
+        # 2. Lấy đường dẫn script từ AIService để tránh sai lệch cấu trúc
+        script_path = getattr(self.ai_service, "train_script_path", None)
+        if not script_path or not os.path.exists(script_path):
+            self.view.show_message(
+                "Lỗi",
+                f"Không tìm thấy file huấn luyện tại:\n{script_path or 'N/A'}",
+                level="error"
+            )
+            return
+
+        # 3. Mở dialog giám sát huấn luyện (không làm đơ UI chính)
+        monitor = TrainingMonitorDialog(script_path, parent=self.view)
+        monitor.exec_()
+        print("Huấn luyện đã hoàn tất.")  # Log nhẹ nhàng để debug
