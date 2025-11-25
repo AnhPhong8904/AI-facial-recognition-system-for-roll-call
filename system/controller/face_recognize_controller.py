@@ -21,6 +21,8 @@ except NameError:
     if BASE_DIR not in sys.path:
         sys.path.append(BASE_DIR)
 
+CHECKIN_IMAGE_DIR = os.path.join(BASE_DIR, "system", "checkin_images")
+
 # -------------------------------------------------------------------
 # Imports
 # -------------------------------------------------------------------
@@ -443,16 +445,19 @@ class FaceRecognizeController:
             self.view.update_notice(notice_message, notice_level)
             return
 
-        # 4. Nếu hợp lệ -> Ghi vào CSDL
+        # 4. Chuẩn bị lưu ảnh và ghi vào CSDL
+        image_rel_path = self.save_checkin_face(ma_sv, cropped_face_img)
+
+        # 5. Nếu hợp lệ -> Ghi vào CSDL
         success, message = mark_present(
-            self.current_session_id, student_id, ma_sv, status_to_set
+            self.current_session_id, student_id, ma_sv, status_to_set, image_rel_path
         )
         
         if success:
-            # 5. Cập nhật State (Bộ nhớ)
+            # 6. Cập nhật State (Bộ nhớ)
             self.student_roster[ma_sv]["status"] = status_to_set
             
-            # 6. Cập nhật UI
+            # 7. Cập nhật UI
             notice_suffix = f" ({status_to_set})"
             self.view.update_notice(f"✅ {student_data['name']} ({ma_sv}) đã điểm danh!{notice_suffix}", "success")
             
@@ -466,7 +471,7 @@ class FaceRecognizeController:
             
             self.view.update_last_person_info(ma_sv, student_data['name'], timestamp, q_face_img)
             
-            # 7. Cập nhật danh sách (chuyển từ Vắng -> Có mặt/Đi muộn)
+            # 8. Cập nhật danh sách (chuyển từ Vắng -> Có mặt/Đi muộn)
             self.populate_roster_lists()
         else:
             self.view.update_notice(f"❌ Lỗi khi ghi danh {ma_sv}: {message}", "error")
@@ -490,6 +495,22 @@ class FaceRecognizeController:
 
         remaining = self.attendance_delay_seconds - elapsed
         return False, max(0.0, remaining)
+
+    def save_checkin_face(self, ma_sv, cropped_face_img):
+        """
+        Lưu ảnh khuôn mặt đã nhận diện vào thư mục chung và trả về đường dẫn tương đối.
+        """
+        try:
+            os.makedirs(CHECKIN_IMAGE_DIR, exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+            filename = f"{ma_sv}_{timestamp}.jpg"
+            file_path = os.path.join(CHECKIN_IMAGE_DIR, filename)
+            cv2.imwrite(file_path, cropped_face_img)
+            relative_path = os.path.relpath(file_path, BASE_DIR).replace("\\", "/")
+            return relative_path
+        except Exception as exc:
+            print(f"Lỗi khi lưu ảnh điểm danh: {exc}")
+            return None
 
     # ==========================================================
     # [MỚI] HÀM XỬ LÝ CHỐT SỔ (GHI VẮNG)

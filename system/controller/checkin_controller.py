@@ -1,10 +1,14 @@
+import os
 import sys
-from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem
+from PyQt5.QtWidgets import QMessageBox, QTableWidgetItem, QDialog, QVBoxLayout, QLabel
 from PyQt5.QtCore import Qt, QDate, QTime, QDateTime
+from PyQt5.QtGui import QPixmap
 # Sửa tên file import
 from ui.checkin_info import CheckinWindow 
 # Chúng ta sẽ cần file service mới
 from model import checkin_service 
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 class CheckinController:
     def __init__(self, on_close_callback):
@@ -14,6 +18,7 @@ class CheckinController:
         """
         self.view = CheckinWindow()
         self.on_close_callback = on_close_callback
+        self.selected_image_path = None
         
         # Kết nối các nút và sự kiện
         self.connect_signals()
@@ -27,6 +32,7 @@ class CheckinController:
         self.view.btn_update.clicked.connect(self.handle_update_checkin)
         self.view.btn_delete.clicked.connect(self.handle_delete_checkin)
         self.view.btn_reset.clicked.connect(self.clear_form)
+        self.view.btn_view_image.clicked.connect(self.handle_view_image)
         
         # Nút chức năng (Tìm kiếm)
         self.view.btn_search.clicked.connect(self.handle_search_checkin)
@@ -74,7 +80,7 @@ class CheckinController:
         
         # Lấy dữ liệu từ bảng
         # "ID Điểm danh", "ID Buổi", "Mã SV", "Tên Sinh viên", 
-        # "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú"
+        # "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú", "Ảnh điểm danh", "Thời gian ra"
         id_diemdanh = self.view.table.item(selected_row, 0).text()
         id_buoi = self.view.table.item(selected_row, 1).text()
         ma_sv = self.view.table.item(selected_row, 2).text()
@@ -83,6 +89,7 @@ class CheckinController:
         thoi_gian_str = self.view.table.item(selected_row, 5).text()
         trang_thai = self.view.table.item(selected_row, 6).text()
         ghi_chu = self.view.table.item(selected_row, 7).text()
+        self.selected_image_path = self.view.table.item(selected_row, 8).text()
         
         # Điền vào form
         self.view.inputs["ID điểm danh:"].setText(id_diemdanh)
@@ -104,6 +111,49 @@ class CheckinController:
     def clear_form(self):
         """Làm mới (xóa) tất cả các trường trong form"""
         self.view.clear_form()
+        self.selected_image_path = None
+
+    def handle_view_image(self):
+        """Hiển thị hộp thoại xem ảnh điểm danh."""
+        if not self.selected_image_path:
+            self.view.show_message("Chưa chọn", "Vui lòng chọn một dòng có ảnh để xem.", level="warning")
+            return
+
+        raw_path = self.selected_image_path.strip()
+        if not raw_path:
+            self.view.show_message("Không có ảnh", "Bản ghi này không lưu đường dẫn ảnh.", level="info")
+            return
+
+        image_path = raw_path
+        if not os.path.isabs(image_path):
+            image_path = os.path.normpath(os.path.join(BASE_DIR, image_path))
+
+        if not os.path.exists(image_path):
+            self.view.show_message("Không tìm thấy", f"Không tìm thấy ảnh tại:\n{image_path}", level="error")
+            return
+
+        pixmap = QPixmap(image_path)
+        if pixmap.isNull():
+            self.view.show_message("Lỗi ảnh", "Không thể đọc file ảnh (định dạng không hợp lệ).", level="error")
+            return
+
+        dialog = QDialog(self.view)
+        dialog.setWindowTitle("Ảnh điểm danh")
+        layout = QVBoxLayout(dialog)
+
+        image_label = QLabel()
+        image_label.setAlignment(Qt.AlignCenter)
+        scaled_pixmap = pixmap.scaled(480, 360, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        image_label.setPixmap(scaled_pixmap)
+
+        path_label = QLabel(image_path)
+        path_label.setWordWrap(True)
+        path_label.setAlignment(Qt.AlignCenter)
+
+        layout.addWidget(image_label)
+        layout.addWidget(path_label)
+        dialog.setLayout(layout)
+        dialog.exec_()
 
     # ==========================================================
     # HÀM XỬ LÝ CRUD (CHỈ CẬP NHẬT, XÓA - KHÔNG THÊM)

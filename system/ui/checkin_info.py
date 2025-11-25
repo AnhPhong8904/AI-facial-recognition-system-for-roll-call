@@ -210,10 +210,11 @@ class CheckinWindow(QWidget):
         self.table = QTableWidget()
         
         # === SỬA ĐỔI CỘT CHO KHỚP CSDL ===
-        self.table.setColumnCount(8) 
+        self.table.setColumnCount(10) 
         self.table.setHorizontalHeaderLabels([
             "ID Điểm danh", "ID Buổi", "Mã SV", "Tên Sinh viên", 
-            "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú"
+            "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú",
+            "Ảnh điểm danh", "Thời gian ra"
             # Bỏ "Giờ ra", bỏ "Ngày" (vì đã gộp vào Thời gian)
         ])
         

@@ -183,7 +183,7 @@ def get_roster(session_id):
         if conn:
             conn.close()
         
-def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
+def mark_present(session_id, student_id, ma_sv, status='Có mặt', image_path=None):
     """
     Ghi danh (INSERT) một sinh viên vào bảng DIEMDANH.
     """
@@ -194,15 +194,16 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
     # thì câu lệnh này sẽ UPDATE, thay vì INSERT và báo lỗi.
     sql = """
         MERGE INTO DIEMDANH AS target
-        USING (VALUES (?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN)
+        USING (VALUES (?, ?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, DUONG_DANH_ANH, THOI_GIAN)
         ON target.ID_BUOI = source.ID_BUOI AND target.ID_SV = source.ID_SV
         WHEN MATCHED THEN
             UPDATE SET 
                 TRANG_THAI = source.TRANG_THAI,
-                THOI_GIAN_DIEMDANH = source.THOI_GIAN
+                THOI_GIAN_DIEMDANH = source.THOI_GIAN,
+                DUONG_DAN_ANH_DIEMDANH = COALESCE(source.DUONG_DANH_ANH, target.DUONG_DAN_ANH_DIEMDANH)
         WHEN NOT MATCHED THEN
-            INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH)
-            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN);
+            INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH, DUONG_DAN_ANH_DIEMDANH)
+            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN, source.DUONG_DANH_ANH);
     """
     conn = None
     cursor = None
@@ -213,7 +214,7 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt'):
              
         cursor = conn.cursor()
         
-        params = (session_id, student_id, status)
+        params = (session_id, student_id, status, image_path)
         cursor.execute(sql, params)
         
         conn.commit()
