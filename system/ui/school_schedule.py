@@ -123,6 +123,8 @@ class ScheduleWindow(QWidget):
         self.date_ngay_hoc.setDisplayFormat("dd-MM-yyyy")
         self.date_ngay_hoc.setCalendarPopup(True)
         self.date_ngay_hoc.setDate(QDate.currentDate())
+        # Không cho chọn ngày nhỏ hơn ngày hiện tại
+        self.date_ngay_hoc.setMinimumDate(QDate.currentDate())
         form_layout.addWidget(self.date_ngay_hoc, 3, 1)
 
         # Hàng 4: Giờ bắt đầu

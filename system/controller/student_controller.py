@@ -175,8 +175,35 @@ class StudentController:
         """Xử lý Thêm mới sinh viên"""
         data = self.view.get_student_form_data()
 
-        if not data["ma_sv"] or not data["ho_ten"]:
-            self.view.show_message("Thiếu thông tin", "Mã sinh viên và Họ tên là bắt buộc.", level="warning")
+        # Kiểm tra bắt buộc nhập đầy đủ tất cả trường
+        missing_fields = []
+        if not data["ma_sv"].strip():
+            missing_fields.append("Mã sinh viên")
+        if not data["ho_ten"].strip():
+            missing_fields.append("Họ tên")
+        if not data["gioi_tinh"].strip():
+            missing_fields.append("Giới tính")
+        if not data["ngay_sinh"]:
+            missing_fields.append("Ngày sinh")
+        if not data["email"].strip():
+            missing_fields.append("Email")
+        if not data["sdt"].strip():
+            missing_fields.append("Số điện thoại")
+        if not data["nganh"].strip():
+            missing_fields.append("Ngành học")
+        if not data["nam_hoc"].strip():
+            missing_fields.append("Năm học")
+        if not data["lop_hoc"].strip():
+            missing_fields.append("Lớp hành chính")
+        if not data["trang_thai"].strip():
+            missing_fields.append("Trạng thái")
+
+        if missing_fields:
+            self.view.show_message(
+                "Thiếu thông tin",
+                "Các trường bắt buộc chưa nhập:\n- " + "\n- ".join(missing_fields),
+                level="warning"
+            )
             return
 
         # [SỬA LẠI] Kiểm tra Số điện thoại: Phải là số + Đủ 10 ký tự + Bắt đầu bằng '0'
@@ -211,6 +238,35 @@ class StudentController:
 
         if not data["ma_sv"]:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một sinh viên từ bảng để cập nhật.", level="warning")
+            return
+
+        # Kiểm tra bắt buộc nhập đầy đủ tất cả trường trước khi cập nhật
+        missing_fields = []
+        if not data["ho_ten"].strip():
+            missing_fields.append("Họ tên")
+        if not data["gioi_tinh"].strip():
+            missing_fields.append("Giới tính")
+        if not data["ngay_sinh"]:
+            missing_fields.append("Ngày sinh")
+        if not data["email"].strip():
+            missing_fields.append("Email")
+        if not data["sdt"].strip():
+            missing_fields.append("Số điện thoại")
+        if not data["nganh"].strip():
+            missing_fields.append("Ngành học")
+        if not data["nam_hoc"].strip():
+            missing_fields.append("Năm học")
+        if not data["lop_hoc"].strip():
+            missing_fields.append("Lớp hành chính")
+        if not data["trang_thai"].strip():
+            missing_fields.append("Trạng thái")
+
+        if missing_fields:
+            self.view.show_message(
+                "Thiếu thông tin",
+                "Các trường bắt buộc chưa nhập:\n- " + "\n- ".join(missing_fields),
+                level="warning"
+            )
             return
 
         # [SỬA LẠI] Kiểm tra Số điện thoại tương tự như trên

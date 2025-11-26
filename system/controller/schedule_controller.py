@@ -142,6 +142,17 @@ class ScheduleController:
             self.view.show_message("Thiếu thông tin", "Bạn phải chọn một Lớp học.", level="warning")
             return
 
+        # Ngày học không được trước ngày hiện tại
+        ngay_hoc_qdate = QDate.fromString(data["ngay_hoc"], "yyyy-MM-dd")
+        if (not ngay_hoc_qdate.isValid()) or (ngay_hoc_qdate < QDate.currentDate()):
+            self.view.show_message("Ngày học không hợp lệ", "Ngày học phải từ hôm nay trở đi.", level="warning")
+            return
+
+        # Trường bắt buộc: Phòng học
+        if not data["phong_hoc"].strip():
+            self.view.show_message("Thiếu thông tin", "Vui lòng nhập Phòng học.", level="warning")
+            return
+
         gio_bd = QTime.fromString(data["gio_bd"], "HH:mm")
         gio_kt = QTime.fromString(data["gio_kt"], "HH:mm")
         if not (gio_bd.isValid() and gio_kt.isValid()):
@@ -173,6 +184,17 @@ class ScheduleController:
         # 2. Kiểm tra
         if not data["id_buoi"]:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một lịch học từ bảng để cập nhật.", level="warning")
+            return
+
+        # Ngày học không được trước ngày hiện tại
+        ngay_hoc_qdate = QDate.fromString(data["ngay_hoc"], "yyyy-MM-dd")
+        if (not ngay_hoc_qdate.isValid()) or (ngay_hoc_qdate < QDate.currentDate()):
+            self.view.show_message("Ngày học không hợp lệ", "Ngày học phải từ hôm nay trở đi.", level="warning")
+            return
+
+        # Trường bắt buộc: Phòng học
+        if not data["phong_hoc"].strip():
+            self.view.show_message("Thiếu thông tin", "Vui lòng nhập Phòng học.", level="warning")
             return
 
         gio_bd = QTime.fromString(data["gio_bd"], "HH:mm")

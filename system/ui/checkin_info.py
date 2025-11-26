@@ -140,15 +140,15 @@ class CheckinWindow(QWidget):
         self.btn_view_image = QPushButton("Xem ảnh")
         self.btn_delete = QPushButton("Xoá")
         
-        # Tạm thời vô hiệu hóa Import/Export (chức năng phức tạp)
-        self.btn_import = QPushButton("Nhập CSV")
-        self.btn_export = QPushButton("Xuất CSV")
-        self.btn_import.setEnabled(False)
-        self.btn_export.setEnabled(False)
+        # # Tạm thời vô hiệu hóa Import/Export (chức năng phức tạp)
+        # self.btn_import = QPushButton("Nhập CSV")
+        # self.btn_export = QPushButton("Xuất CSV")
+        # self.btn_import.setEnabled(False)
+        # self.btn_export.setEnabled(False)
 
         buttons = [
             self.btn_update, self.btn_reset, self.btn_view_image, 
-            self.btn_delete, self.btn_import, self.btn_export
+            self.btn_delete
         ]
 
         for i, btn in enumerate(buttons):
