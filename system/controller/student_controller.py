@@ -201,7 +201,7 @@ class StudentController:
         if missing_fields:
             self.view.show_message(
                 "Thiếu thông tin",
-                "Các trường bắt buộc chưa nhập:\n- " + "\n- ".join(missing_fields),
+                "Vui lòng nhập đầy đủ thông tin:\n- " + "\n- ".join(missing_fields),
                 level="warning"
             )
             return
@@ -264,7 +264,7 @@ class StudentController:
         if missing_fields:
             self.view.show_message(
                 "Thiếu thông tin",
-                "Các trường bắt buộc chưa nhập:\n- " + "\n- ".join(missing_fields),
+                "Vui lòng nhập đầy đủ thông tin:\n- " + "\n- ".join(missing_fields),
                 level="warning"
             )
             return

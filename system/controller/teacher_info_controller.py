@@ -198,8 +198,6 @@ class TeacherController:
         
         # Lấy từ ComboBox
         data['gioi_tinh'] = self.view.inputs["Giới tính:"].currentText()
-        if data['gioi_tinh'] == "": # Nếu là chuỗi rỗng
-            data['gioi_tinh'] = None
             
         # Lấy từ QDateEdit
         date = self.view.inputs["Ngày sinh:"].date()
@@ -210,8 +208,6 @@ class TeacherController:
              data['ngay_sinh'] = date.toString("yyyy-MM-dd") # Format CSDL
              
         data['dia_chi'] = self.view.inputs["Địa chỉ:"].text().strip()
-        if data['dia_chi'] == "":
-            data['dia_chi'] = None
             
         return data
 
@@ -219,9 +215,33 @@ class TeacherController:
         """Xử lý Thêm mới giảng viên"""
         data = self.get_data_from_form()
 
-        # 1. Kiểm tra thông tin bắt buộc
-        if not data['ma_gv'] or not data['ho_ten'] or not data['ten_dang_nhap'] or not data['mat_khau']:
-            self.show_message("Thiếu thông tin", "Mã giảng viên, Họ tên, Tên đăng nhập và Mật khẩu là bắt buộc.", level="warning")
+        # 1. Kiểm tra thông tin bắt buộc (yêu cầu nhập đầy đủ)
+        missing_fields = []
+        if not data['ma_gv']:
+            missing_fields.append("Mã giảng viên")
+        if not data['ho_ten']:
+            missing_fields.append("Họ tên")
+        if not data['sdt']:
+            missing_fields.append("Số điện thoại")
+        if not data['email']:
+            missing_fields.append("Email")
+        if not data['ten_dang_nhap']:
+            missing_fields.append("Tên đăng nhập")
+        if not data['mat_khau']:
+            missing_fields.append("Mật khẩu")
+        if not data['gioi_tinh']:
+            missing_fields.append("Giới tính")
+        if not data['ngay_sinh']:
+            missing_fields.append("Ngày sinh")
+        if not data['dia_chi']:
+            missing_fields.append("Địa chỉ")
+
+        if missing_fields:
+            self.show_message(
+                "Thiếu thông tin",
+                "Vui lòng nhập đầy đủ thông tin:\n- " + "\n- ".join(missing_fields),
+                level="warning"
+            )
             return
 
         # 2. [MỚI] Kiểm tra Số điện thoại (Bắt đầu bằng 0, đủ 10 số)
@@ -264,9 +284,31 @@ class TeacherController:
 
         data = self.get_data_from_form()
         
-        # 1. Kiểm tra thông tin bắt buộc
-        if not data['ma_gv'] or not data['ho_ten']:
-            self.show_message("Thiếu thông tin", "Mã giảng viên và Họ tên là bắt buộc.", level="warning")
+        # 1. Kiểm tra thông tin bắt buộc (yêu cầu nhập đầy đủ, trừ mật khẩu có thể để trống để giữ nguyên)
+        missing_fields = []
+        if not data['ma_gv']:
+            missing_fields.append("Mã giảng viên")
+        if not data['ho_ten']:
+            missing_fields.append("Họ tên")
+        if not data['sdt']:
+            missing_fields.append("Số điện thoại")
+        if not data['email']:
+            missing_fields.append("Email")
+        if not data['ten_dang_nhap']:
+            missing_fields.append("Tên đăng nhập")
+        if not data['gioi_tinh']:
+            missing_fields.append("Giới tính")
+        if not data['ngay_sinh']:
+            missing_fields.append("Ngày sinh")
+        if not data['dia_chi']:
+            missing_fields.append("Địa chỉ")
+
+        if missing_fields:
+            self.show_message(
+                "Thiếu thông tin",
+                "Các trường bắt buộc chưa nhập:\n- " + "\n- ".join(missing_fields),
+                level="warning"
+            )
             return
 
         # 2. [MỚI] Kiểm tra Số điện thoại (Tương tự như trên)
