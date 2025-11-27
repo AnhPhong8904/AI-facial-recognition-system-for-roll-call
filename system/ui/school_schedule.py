@@ -3,7 +3,8 @@ import os
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QLineEdit, QPushButton, QComboBox,
     QHBoxLayout, QVBoxLayout, QGridLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QGroupBox, QDateEdit, QTimeEdit, QFrame, QMessageBox
+    QHeaderView, QGroupBox, QDateEdit, QTimeEdit, QFrame, QMessageBox,
+    QDialog, QScrollArea
 )
 # Cần import QTime
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QDate, QTime 
@@ -142,7 +143,18 @@ class ScheduleWindow(QWidget):
         # Hàng 6: Phòng học
         form_layout.addWidget(QLabel("Phòng học:"), 6, 0)
         self.line_phong_hoc = QLineEdit()
-        form_layout.addWidget(self.line_phong_hoc, 6, 1)
+        room_container = QWidget()
+        room_layout = QHBoxLayout()
+        room_layout.setContentsMargins(0, 0, 0, 0)
+        room_layout.setSpacing(8)
+        room_layout.addWidget(self.line_phong_hoc, 3)
+
+        self.btn_pick_room = QPushButton("Chọn phòng")
+        self.btn_pick_room.setStyleSheet("background-color: #0ea5e9; color: white; padding: 6px 10px; border-radius: 6px; font-weight: bold;")
+        room_layout.addWidget(self.btn_pick_room)
+
+        room_container.setLayout(room_layout)
+        form_layout.addWidget(room_container, 6, 1)
         
         # Hàng 7: Ghi chú
         form_layout.addWidget(QLabel("Ghi chú:"), 7, 0)
@@ -273,8 +285,8 @@ class ScheduleWindow(QWidget):
             "ngay_hoc": self.date_ngay_hoc.date().toString("yyyy-MM-dd"),
             "gio_bd": self.time_bat_dau.time().toString("HH:mm"),
             "gio_kt": self.time_ket_thuc.time().toString("HH:mm"),
-            "phong_hoc": self.line_phong_hoc.text(),
-            "ghi_chu": self.line_ghi_chu.text()
+            "phong_hoc": self.line_phong_hoc.text().strip(),
+            "ghi_chu": self.line_ghi_chu.text().strip()
         }
         return data
 
@@ -334,3 +346,67 @@ class ScheduleWindow(QWidget):
             return QMessageBox.question(self, title, message, 
                                         QMessageBox.Yes | QMessageBox.No, 
                                         QMessageBox.No)
+
+    def show_room_dialog(self, rooms_info):
+        """
+        Hiển thị dialog chọn phòng học cùng tình trạng.
+        """
+        dialog = RoomAvailabilityDialog(rooms_info, self)
+        result = dialog.exec_()
+        if result == QDialog.Accepted:
+            return dialog.selected_room
+        return None
+
+
+class RoomAvailabilityDialog(QDialog):
+    def __init__(self, rooms_info, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Tình trạng phòng học")
+        self.setModal(True)
+        self.resize(480, 400)
+        self.selected_room = None
+
+        layout = QVBoxLayout()
+        intro = QLabel("Những phòng đang bận sẽ hiển thị màu đỏ.")
+        intro.setStyleSheet("font-weight: bold;")
+        layout.addWidget(intro)
+
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        container = QWidget()
+        grid = QGridLayout()
+        grid.setSpacing(10)
+
+        if rooms_info:
+            for index, room in enumerate(rooms_info):
+                btn = QPushButton(room["phong_hoc"])
+                btn.setCursor(Qt.PointingHandCursor)
+                btn.setMinimumWidth(120)
+
+                tooltip_parts = []
+                for conflict in room.get("conflicts", []):
+                    tooltip_parts.append(f"Lớp {conflict['ma_lop']} ({conflict['gio_bd']} - {conflict['gio_kt']})")
+                if tooltip_parts:
+                    btn.setToolTip("\n".join(tooltip_parts))
+
+                if room["is_free"]:
+                    btn.setStyleSheet("background-color: #22c55e; color: white; font-weight: bold; border-radius: 6px; padding: 8px;")
+                    btn.clicked.connect(lambda _, name=room["phong_hoc"]: self._select_room(name))
+                else:
+                    btn.setStyleSheet("background-color: #ef4444; color: white; font-weight: bold; border-radius: 6px; padding: 8px;")
+                    btn.setEnabled(False)
+
+                row = index // 3
+                col = index % 3
+                grid.addWidget(btn, row, col)
+        else:
+            grid.addWidget(QLabel("Không có phòng học nào trong hệ thống."), 0, 0)
+
+        container.setLayout(grid)
+        scroll.setWidget(container)
+        layout.addWidget(scroll)
+        self.setLayout(layout)
+
+    def _select_room(self, room_name):
+        self.selected_room = room_name
+        self.accept()

@@ -137,6 +137,18 @@ def add_schedule(data):
         
         cursor = conn.cursor()
 
+        phong_hoc = (data["phong_hoc"] or "").strip()
+
+        conflict = _find_room_conflict(
+            cursor,
+            phong_hoc,
+            data["ngay_hoc"],
+            data["gio_bd"],
+            data["gio_kt"]
+        )
+        if conflict:
+            return False, _build_conflict_message(phong_hoc, conflict)
+
         sql_insert = """
             INSERT INTO BUOIHOC (ID_LOP, NGAY_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC, GHI_CHU) 
             VALUES (?, ?, ?, ?, ?, ?);
@@ -146,7 +158,7 @@ def add_schedule(data):
             data["ngay_hoc"],
             data["gio_bd"],
             data["gio_kt"],
-            data["phong_hoc"],
+            phong_hoc,
             data["ghi_chu"]
         )
         
@@ -180,6 +192,20 @@ def update_schedule(data):
         
         cursor = conn.cursor()
 
+        phong_hoc = (data["phong_hoc"] or "").strip()
+        exclude_id = int(data["id_buoi"]) if str(data["id_buoi"]).isdigit() else data["id_buoi"]
+
+        conflict = _find_room_conflict(
+            cursor,
+            phong_hoc,
+            data["ngay_hoc"],
+            data["gio_bd"],
+            data["gio_kt"],
+            exclude_id=exclude_id
+        )
+        if conflict:
+            return False, _build_conflict_message(phong_hoc, conflict)
+
         # Cập nhật bảng BUOIHOC
         # Lưu ý: Không cho phép đổi ID_LOP khi cập nhật (đã disable ComboBox)
         sql_update = """
@@ -192,7 +218,7 @@ def update_schedule(data):
             data["ngay_hoc"],
             data["gio_bd"],
             data["gio_kt"],
-            data["phong_hoc"],
+            phong_hoc,
             data["ghi_chu"],
             data["id_buoi"]
         )
@@ -323,3 +349,129 @@ def search_schedules(search_by, keyword):
     finally:
         if conn:
             conn.close()
+
+# ==========================================================
+# HÀM KIỂM TRA VÀ HIỂN THỊ TÌNH TRẠNG PHÒNG HỌC
+# ==========================================================
+
+def get_room_availability(ngay_hoc, gio_bd, gio_kt):
+    """
+    Lấy danh sách phòng học và trạng thái trống/bận cho khoảng thời gian cụ thể.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+        
+        cursor = conn.cursor()
+        rooms = _fetch_all_known_rooms(cursor)
+        if not rooms:
+            return []
+
+        busy_map = _fetch_busy_rooms(cursor, ngay_hoc, gio_bd, gio_kt)
+        availability = []
+        for room in rooms:
+            conflicts = busy_map.get(room, [])
+            availability.append({
+                "phong_hoc": room,
+                "is_free": len(conflicts) == 0,
+                "conflicts": conflicts
+            })
+        return availability
+
+    except Exception as e:
+        print(f"Lỗi khi lấy tình trạng phòng học (service): {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+# ==========================================================
+# HÀM PHỤ TRỢ
+# ==========================================================
+
+def _format_time_value(value):
+    if hasattr(value, "strftime"):
+        return value.strftime("%H:%M")
+    if isinstance(value, str):
+        return value[:5]
+    return str(value) if value is not None else ""
+
+def _fetch_all_known_rooms(cursor):
+    sql_rooms = """
+        SELECT DISTINCT room_name
+        FROM (
+            SELECT LTRIM(RTRIM(ISNULL(PHONG_HOC, ''))) AS room_name FROM LOPHOC
+            UNION ALL
+            SELECT LTRIM(RTRIM(ISNULL(PHONG_HOC, ''))) AS room_name FROM BUOIHOC
+        ) AS rooms
+        WHERE room_name <> ''
+        ORDER BY room_name;
+    """
+    cursor.execute(sql_rooms)
+    return [row[0] for row in cursor.fetchall()]
+
+def _fetch_busy_rooms(cursor, ngay_hoc, gio_bd, gio_kt, exclude_id=None):
+    sql_busy = """
+        SELECT 
+            b.PHONG_HOC,
+            l.MA_LOP,
+            b.GIO_BAT_DAU,
+            b.GIO_KET_THUC
+        FROM BUOIHOC b
+        LEFT JOIN LOPHOC l ON b.ID_LOP = l.ID_LOP
+        WHERE b.NGAY_HOC = ?
+          AND b.PHONG_HOC IS NOT NULL
+          AND LTRIM(RTRIM(b.PHONG_HOC)) <> ''
+          AND NOT (b.GIO_KET_THUC <= ? OR b.GIO_BAT_DAU >= ?)
+    """
+    params = [ngay_hoc, gio_bd, gio_kt]
+    if exclude_id:
+        sql_busy += " AND b.ID_BUOI != ?"
+        params.append(exclude_id)
+
+    cursor.execute(sql_busy, tuple(params))
+
+    busy_map = {}
+    for row in cursor.fetchall():
+        if not row[0]:
+            continue
+        room = row[0].strip()
+        info = {
+            "ma_lop": row[1],
+            "gio_bd": _format_time_value(row[2]),
+            "gio_kt": _format_time_value(row[3])
+        }
+        busy_map.setdefault(room, []).append(info)
+    return busy_map
+
+def _find_room_conflict(cursor, phong_hoc, ngay_hoc, gio_bd, gio_kt, exclude_id=None):
+    if not phong_hoc:
+        return None
+
+    sql_conflict = """
+        SELECT TOP 1 
+            b.ID_BUOI,
+            l.MA_LOP,
+            b.GIO_BAT_DAU,
+            b.GIO_KET_THUC
+        FROM BUOIHOC b
+        LEFT JOIN LOPHOC l ON b.ID_LOP = l.ID_LOP
+        WHERE LTRIM(RTRIM(b.PHONG_HOC)) = ?
+          AND b.NGAY_HOC = ?
+          AND NOT (b.GIO_KET_THUC <= ? OR b.GIO_BAT_DAU >= ?)
+    """
+    params = [phong_hoc, ngay_hoc, gio_bd, gio_kt]
+    if exclude_id:
+        sql_conflict += " AND b.ID_BUOI != ?"
+        params.append(exclude_id)
+
+    cursor.execute(sql_conflict, tuple(params))
+    return cursor.fetchone()
+
+def _build_conflict_message(phong_hoc, conflict_row):
+    ma_lop = conflict_row[1] or "khác"
+    gio_bd = _format_time_value(conflict_row[2])
+    gio_kt = _format_time_value(conflict_row[3])
+    return f"Phòng {phong_hoc} đã có lớp {ma_lop} từ {gio_bd} đến {gio_kt}. Vui lòng chọn phòng khác."

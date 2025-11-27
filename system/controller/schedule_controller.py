@@ -26,6 +26,7 @@ class ScheduleController:
         self.view.btn_update.clicked.connect(self.handle_update_schedule)
         self.view.btn_delete.clicked.connect(self.handle_delete_schedule)
         self.view.btn_refresh.clicked.connect(self.clear_form)
+        self.view.btn_pick_room.clicked.connect(self.handle_pick_room_dialog)
         
         # Nút chức năng (Tìm kiếm)
         self.view.btn_search.clicked.connect(self.handle_search_schedule)
@@ -127,6 +128,38 @@ class ScheduleController:
     def clear_form(self):
         """Làm mới (xóa) tất cả các trường trong form"""
         self.view.clear_form()
+
+    def handle_pick_room_dialog(self):
+        """Hiển thị danh sách phòng trống dựa trên ngày/giờ đã chọn."""
+        gio_bd = self.view.time_bat_dau.time()
+        gio_kt = self.view.time_ket_thuc.time()
+
+        if not (gio_bd.isValid() and gio_kt.isValid()):
+            self.view.show_message("Thời gian không hợp lệ", "Vui lòng nhập giờ học hợp lệ trước khi chọn phòng.", level="warning")
+            return
+
+        if gio_bd >= gio_kt:
+            self.view.show_message("Thời gian không hợp lệ", "Giờ bắt đầu phải nhỏ hơn giờ kết thúc trước khi chọn phòng.", level="warning")
+            return
+
+        ngay_hoc = self.view.date_ngay_hoc.date().toString("yyyy-MM-dd")
+        data = schedule_service.get_room_availability(
+            ngay_hoc,
+            gio_bd.toString("HH:mm"),
+            gio_kt.toString("HH:mm")
+        )
+
+        if data is None:
+            self.view.show_message("Lỗi", "Không thể tải danh sách phòng học.", level="error")
+            return
+
+        if not data:
+            self.view.show_message("Thông báo", "Chưa có phòng học nào trong hệ thống. Bạn có thể nhập thủ công.", level="info")
+            return
+
+        selected_room = self.view.show_room_dialog(data)
+        if selected_room:
+            self.view.line_phong_hoc.setText(selected_room)
 
     # ==========================================================
     # HÀM XỬ LÝ CRUD (THÊM, SỬA, XÓA)
