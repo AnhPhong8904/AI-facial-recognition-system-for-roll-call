@@ -21,7 +21,8 @@ BASE_SELECT_QUERY = """
         dd.TRANG_THAI,
         dd.GHI_CHU,
         dd.DUONG_DAN_ANH_DIEMDANH,
-        dd.THOI_GIAN_RA
+        dd.THOI_GIAN_RA,
+        dd.DUONG_DAN_ANH_RA
     FROM DIEMDANH dd
     LEFT JOIN SINHVIEN s ON dd.ID_SV = s.ID_SV
     LEFT JOIN BUOIHOC b ON dd.ID_BUOI = b.ID_BUOI
@@ -32,7 +33,7 @@ def _format_rows(rows):
     """Hàm tiện ích: Chuyển đổi datetime sang chuỗi dd-MM-yyyy HH:mm:ss"""
     formatted_rows = []
     for row in rows:
-        # row[5] là THOI_GIAN_DIEMDANH
+        # row[5] là THOI_GIAN_DIEMDANH, row[9] là THOI_GIAN_RA, row[10] là DUONG_DAN_ANH_RA
         thoi_gian_dt = row[5]
         thoi_gian_str = thoi_gian_dt.strftime("%d-%m-%Y %H:%M:%S") if isinstance(thoi_gian_dt, datetime) else str(thoi_gian_dt)
         thoi_gian_ra_dt = row[9]
@@ -41,8 +42,21 @@ def _format_rows(rows):
             thoi_gian_ra_str = thoi_gian_ra_dt.strftime("%d-%m-%Y %H:%M:%S") if isinstance(thoi_gian_ra_dt, datetime) else str(thoi_gian_ra_dt)
         
         # Tạo tuple mới với thời gian đã định dạng
+        # "ID Điểm danh", "ID Buổi", "Mã SV", "Tên Sinh viên",
+        # "Mã Lớp", "Thời gian vào", "Trạng thái", "Ghi chú",
+        # "Ảnh vào", "Thời gian ra", "Ảnh ra"
         formatted_rows.append((
-            row[0], row[1], row[2], row[3], row[4], thoi_gian_str, row[6], row[7], row[8], thoi_gian_ra_str
+            row[0],  # ID_DIEMDANH
+            row[1],  # ID_BUOI
+            row[2],  # MA_SV
+            row[3],  # TEN_SINH_VIEN
+            row[4],  # MA_LOP
+            thoi_gian_str,
+            row[6],  # TRANG_THAI
+            row[7],  # GHI_CHU
+            row[8],  # DUONG_DAN_ANH_DIEMDANH
+            thoi_gian_ra_str,
+            row[10]  # DUONG_DAN_ANH_RA
         ))
     return formatted_rows
 

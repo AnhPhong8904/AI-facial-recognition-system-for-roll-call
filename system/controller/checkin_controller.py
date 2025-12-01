@@ -18,7 +18,9 @@ class CheckinController:
         """
         self.view = CheckinWindow()
         self.on_close_callback = on_close_callback
-        self.selected_image_path = None
+        # Ảnh vào và ảnh ra tách riêng
+        self.selected_image_in_path = None
+        self.selected_image_out_path = None
         
         # Kết nối các nút và sự kiện
         self.connect_signals()
@@ -32,7 +34,14 @@ class CheckinController:
         self.view.btn_update.clicked.connect(self.handle_update_checkin)
         self.view.btn_delete.clicked.connect(self.handle_delete_checkin)
         self.view.btn_reset.clicked.connect(self.clear_form)
-        self.view.btn_view_image.clicked.connect(self.handle_view_image)
+        # Nút xem ảnh vào / ảnh ra (nếu UI đã tạo)
+        if hasattr(self.view, "btn_view_image_in"):
+            self.view.btn_view_image_in.clicked.connect(self.handle_view_image_in)
+        if hasattr(self.view, "btn_view_image_out"):
+            self.view.btn_view_image_out.clicked.connect(self.handle_view_image_out)
+        # Giữ tương thích: nếu vẫn chỉ có một nút cũ thì xem ảnh vào
+        if hasattr(self.view, "btn_view_image") and not hasattr(self.view, "btn_view_image_in"):
+            self.view.btn_view_image.clicked.connect(self.handle_view_image_in)
         
         # Nút chức năng (Tìm kiếm)
         self.view.btn_search.clicked.connect(self.handle_search_checkin)
@@ -80,7 +89,8 @@ class CheckinController:
         
         # Lấy dữ liệu từ bảng
         # "ID Điểm danh", "ID Buổi", "Mã SV", "Tên Sinh viên", 
-        # "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú", "Ảnh điểm danh", "Thời gian ra"
+        # "Mã Lớp", "Thời gian vào", "Trạng thái", "Ghi chú",
+        # "Ảnh vào", "Thời gian ra", "Ảnh ra"
         id_diemdanh = self.view.table.item(selected_row, 0).text()
         id_buoi = self.view.table.item(selected_row, 1).text()
         ma_sv = self.view.table.item(selected_row, 2).text()
@@ -89,7 +99,13 @@ class CheckinController:
         thoi_gian_str = self.view.table.item(selected_row, 5).text()
         trang_thai = self.view.table.item(selected_row, 6).text()
         ghi_chu = self.view.table.item(selected_row, 7).text()
-        self.selected_image_path = self.view.table.item(selected_row, 8).text()
+        self.selected_image_in_path = self.view.table.item(selected_row, 8).text() if self.view.table.columnCount() > 8 and self.view.table.item(selected_row, 8) else ""
+        # Cột 9 là thời gian ra, cột 10 (nếu có) là ảnh ra
+        self.selected_image_out_path = ""
+        if self.view.table.columnCount() > 10:
+            item_out = self.view.table.item(selected_row, 10)
+            if item_out:
+                self.selected_image_out_path = item_out.text()
         
         # Điền vào form
         self.view.inputs["ID điểm danh:"].setText(id_diemdanh)
@@ -111,15 +127,16 @@ class CheckinController:
     def clear_form(self):
         """Làm mới (xóa) tất cả các trường trong form"""
         self.view.clear_form()
-        self.selected_image_path = None
+        self.selected_image_in_path = None
+        self.selected_image_out_path = None
 
-    def handle_view_image(self):
-        """Hiển thị hộp thoại xem ảnh điểm danh."""
-        if not self.selected_image_path:
+    def _show_image(self, raw_path, title):
+        """Hiển thị hộp thoại xem ảnh với đường dẫn và tiêu đề truyền vào."""
+        if not raw_path:
             self.view.show_message("Chưa chọn", "Vui lòng chọn một dòng có ảnh để xem.", level="warning")
             return
 
-        raw_path = self.selected_image_path.strip()
+        raw_path = raw_path.strip()
         if not raw_path:
             self.view.show_message("Không có ảnh", "Bản ghi này không lưu đường dẫn ảnh.", level="info")
             return
@@ -138,7 +155,7 @@ class CheckinController:
             return
 
         dialog = QDialog(self.view)
-        dialog.setWindowTitle("Ảnh điểm danh")
+        dialog.setWindowTitle(title)
         layout = QVBoxLayout(dialog)
 
         image_label = QLabel()
@@ -154,6 +171,14 @@ class CheckinController:
         layout.addWidget(path_label)
         dialog.setLayout(layout)
         dialog.exec_()
+
+    def handle_view_image_in(self):
+        """Xem ảnh điểm danh đầu giờ."""
+        self._show_image(self.selected_image_in_path or "", "Ảnh điểm danh vào")
+
+    def handle_view_image_out(self):
+        """Xem ảnh điểm danh cuối giờ."""
+        self._show_image(self.selected_image_out_path or "", "Ảnh điểm danh ra")
 
     # ==========================================================
     # HÀM XỬ LÝ CRUD (CHỈ CẬP NHẬT, XÓA - KHÔNG THÊM)

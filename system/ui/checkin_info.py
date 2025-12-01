@@ -137,7 +137,8 @@ class CheckinWindow(QWidget):
         btn_layout = QGridLayout() # Dùng GridLayout cho dễ chia
         self.btn_update = QPushButton("Cập nhật")
         self.btn_reset = QPushButton("Làm mới")
-        self.btn_view_image = QPushButton("Xem ảnh")
+        self.btn_view_image_in = QPushButton("Ảnh vào")
+        self.btn_view_image_out = QPushButton("Ảnh ra")
         self.btn_delete = QPushButton("Xoá")
         
         # # Tạm thời vô hiệu hóa Import/Export (chức năng phức tạp)
@@ -147,7 +148,8 @@ class CheckinWindow(QWidget):
         # self.btn_export.setEnabled(False)
 
         buttons = [
-            self.btn_update, self.btn_reset, self.btn_view_image, 
+            self.btn_update, self.btn_reset,
+            self.btn_view_image_in, self.btn_view_image_out,
             self.btn_delete
         ]
 
@@ -209,13 +211,12 @@ class CheckinWindow(QWidget):
         # Bảng dữ liệu
         self.table = QTableWidget()
         
-        # === SỬA ĐỔI CỘT CHO KHỚP CSDL ===
-        self.table.setColumnCount(10) 
+        # === SỬA ĐỔI CỘT CHO KHỚP CSDL (thêm cột ảnh ra) ===
+        self.table.setColumnCount(11) 
         self.table.setHorizontalHeaderLabels([
             "ID Điểm danh", "ID Buổi", "Mã SV", "Tên Sinh viên", 
-            "Mã Lớp", "Thời gian", "Trạng thái", "Ghi chú",
-            "Ảnh điểm danh", "Thời gian ra"
-            # Bỏ "Giờ ra", bỏ "Ngày" (vì đã gộp vào Thời gian)
+            "Mã Lớp", "Thời gian vào", "Trạng thái", "Ghi chú",
+            "Ảnh vào", "Thời gian ra", "Ảnh ra"
         ])
         
         self.table.setStyleSheet("""

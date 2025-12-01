@@ -194,16 +194,16 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt', image_path=N
     # thì câu lệnh này sẽ UPDATE, thay vì INSERT và báo lỗi.
     sql = """
         MERGE INTO DIEMDANH AS target
-        USING (VALUES (?, ?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, DUONG_DANH_ANH, THOI_GIAN)
+        USING (VALUES (?, ?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, DUONG_DAN_ANH_DIEMDANH, THOI_GIAN)
         ON target.ID_BUOI = source.ID_BUOI AND target.ID_SV = source.ID_SV
         WHEN MATCHED THEN
             UPDATE SET 
                 TRANG_THAI = source.TRANG_THAI,
                 THOI_GIAN_DIEMDANH = source.THOI_GIAN,
-                DUONG_DAN_ANH_DIEMDANH = COALESCE(source.DUONG_DANH_ANH, target.DUONG_DAN_ANH_DIEMDANH)
+                DUONG_DAN_ANH_DIEMDANH = COALESCE(source.DUONG_DAN_ANH_DIEMDANH, target.DUONG_DAN_ANH_DIEMDANH)
         WHEN NOT MATCHED THEN
             INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH, DUONG_DAN_ANH_DIEMDANH)
-            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN, source.DUONG_DANH_ANH);
+            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN, source.DUONG_DAN_ANH_DIEMDANH);
     """
     conn = None
     cursor = None
@@ -233,12 +233,120 @@ def mark_present(session_id, student_id, ma_sv, status='Có mặt', image_path=N
         if conn:
             conn.close()
 
+def mark_checkout(session_id, student_id, ma_sv, image_path=None):
+    """
+    Ghi thời gian ra (THOI_GIAN_RA) và đường dẫn ảnh khi điểm danh đầu ra.
+    - Nếu bản ghi điểm danh đã tồn tại: chỉ cập nhật THOI_GIAN_RA và (nếu có) DUONG_DAN_ANH_DIEMDANH.
+    - Nếu CHƯA có bản ghi: tạo mới với trạng thái 'Có mặt' và cả thời gian vào/ra đều là hiện tại.
+    """
+    print(f"DEBUG: Ham mark_checkout duoc goi cho SV {ma_sv} (ID: {student_id})")
+
+    sql = """
+        MERGE INTO DIEMDANH AS target
+        USING (VALUES (?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, DUONG_DAN_ANH_RA, THOI_GIAN_RA)
+        ON target.ID_BUOI = source.ID_BUOI AND target.ID_SV = source.ID_SV
+        WHEN MATCHED THEN
+            UPDATE SET 
+                THOI_GIAN_RA = source.THOI_GIAN_RA,
+                DUONG_DAN_ANH_RA = COALESCE(source.DUONG_DAN_ANH_RA, target.DUONG_DAN_ANH_RA)
+        WHEN NOT MATCHED THEN
+            INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH, THOI_GIAN_RA, DUONG_DAN_ANH_RA)
+            VALUES (source.ID_BUOI, source.ID_SV, N'Có mặt', source.THOI_GIAN_RA, source.THOI_GIAN_RA, source.DUONG_DAN_ANH_RA);
+    """
+
+    conn = None
+    cursor = None
+    try:
+        conn = connectdb.get_db_connection()
+        if not conn:
+             raise Exception("Kết nối CSDL thất bại.")
+             
+        cursor = conn.cursor()
+
+        params = (session_id, student_id, image_path)
+        cursor.execute(sql, params)
+
+        conn.commit()
+
+        print(f"[FaceRecognizeService] Da ghi/cap nhat THOI_GIAN_RA cho {ma_sv} (ID: {student_id}) tai buoi {session_id}")
+        return True, "Điểm danh đầu ra thành công"
+
+    except Exception as e:
+        print(f"Loi khi ghi diem danh dau ra (mark_checkout): {e}")
+        if conn:
+            conn.rollback()
+        return False, f"Lỗi CSDL: {e}"
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def mark_checkout_with_status(session_id, student_id, ma_sv, status, image_path=None):
+    """
+    Ghi thời gian ra (THOI_GIAN_RA), trạng thái cuối cùng và đường dẫn ảnh khi điểm danh đầu ra.
+    - Nếu bản ghi điểm danh đã tồn tại: cập nhật THOI_GIAN_RA, TRANG_THAI và (nếu có) DUONG_DANH_ANH_DIEMDANH.
+    - Nếu CHƯA có bản ghi: tạo mới với trạng thái được truyền vào (thường là 'Đi muộn') và cả thời gian vào/ra đều là hiện tại.
+    """
+    print(f"DEBUG: Ham mark_checkout_with_status duoc goi cho SV {ma_sv} (ID: {student_id}) voi status = {status}")
+
+    sql = """
+        MERGE INTO DIEMDANH AS target
+        USING (VALUES (?, ?, ?, ?, GETDATE())) AS source (ID_BUOI, ID_SV, TRANG_THAI, DUONG_DAN_ANH_RA, THOI_GIAN_RA)
+        ON target.ID_BUOI = source.ID_BUOI AND target.ID_SV = source.ID_SV
+        WHEN MATCHED THEN
+            UPDATE SET 
+                THOI_GIAN_RA = source.THOI_GIAN_RA,
+                TRANG_THAI = source.TRANG_THAI,
+                DUONG_DAN_ANH_RA = COALESCE(source.DUONG_DAN_ANH_RA, target.DUONG_DAN_ANH_RA)
+        WHEN NOT MATCHED THEN
+            INSERT (ID_BUOI, ID_SV, TRANG_THAI, THOI_GIAN_DIEMDANH, THOI_GIAN_RA, DUONG_DAN_ANH_RA)
+            VALUES (source.ID_BUOI, source.ID_SV, source.TRANG_THAI, source.THOI_GIAN_RA, source.THOI_GIAN_RA, source.DUONG_DAN_ANH_RA);
+    """
+
+    conn = None
+    cursor = None
+    try:
+        conn = connectdb.get_db_connection()
+        if not conn:
+             raise Exception("Không thể kết nối CSDL.")
+             
+        cursor = conn.cursor()
+
+        params = (session_id, student_id, status, image_path)
+        cursor.execute(sql, params)
+
+        conn.commit()
+
+        print(f"[FaceRecognizeService] Da ghi/cap nhat THOI_GIAN_RA cho {ma_sv} (ID: {student_id}) tai buoi {session_id} voi status {status}")
+        return True, "Điểm danh đầu ra thành công"
+
+    except Exception as e:
+        print(f"Loi khi ghi diem danh dau ra (mark_checkout_with_status): {e}")
+        if conn:
+            conn.rollback()
+        return False, f"Lỗi CSDL: {e}"
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
 def finalize_attendance(session_id):
     """
     Chốt sổ buổi học: Tự động INSERT 'Vắng' cho các SV đã đăng ký
     nhưng CHƯA CÓ bản ghi nào trong bảng DIEMDANH của buổi này.
     """
     
+    sql_update_missing_checkout = """
+        UPDATE dd
+        SET TRANG_THAI = N'Vắng',
+            GHI_CHU = COALESCE(GHI_CHU, N'') + N' | Vắng do không điểm danh đầu ra'
+        FROM DIEMDANH dd
+        WHERE dd.ID_BUOI = ?
+          AND dd.THOI_GIAN_RA IS NULL;
+    """
+
     sql = """
         INSERT INTO DIEMDANH (ID_BUOI, ID_SV, THOI_GIAN_DIEMDANH, TRANG_THAI, GHI_CHU)
         SELECT
@@ -273,14 +381,21 @@ def finalize_attendance(session_id):
              raise Exception("Kết nối CSDL thất bại.")
              
         cursor = conn.cursor()
-        
+
+        # Bước 1: đánh vắng cho những người đã có điểm danh nhưng không có THOI_GIAN_RA
+        cursor.execute(sql_update_missing_checkout, (session_id,))
+        updated_rows = cursor.rowcount
+
+        # Bước 2: chèn vắng cho những người chưa có bản ghi nào
         cursor.execute(sql, (session_id,))
+        inserted_rows = cursor.rowcount
+
         conn.commit()
+
+        affected_rows = updated_rows + inserted_rows
         
-        affected_rows = cursor.rowcount
-        
-        print(f"[FaceRecognizeService] Da chot so buoi {session_id}. Ghi vang cho {affected_rows} SV.")
-        return True, f"Chốt sổ thành công. Đã ghi vắng cho {affected_rows} sinh viên.", affected_rows
+        print(f"[FaceRecognizeService] Da chot so buoi {session_id}. Cap nhat vang cho {updated_rows} SV khong checkout, chen vang moi cho {inserted_rows} SV.")
+        return True, f"Chốt sổ thành công. Đã ghi vắng/ cập nhật vắng cho {affected_rows} sinh viên.", affected_rows
         
     except Exception as e:
         print(f"Loi khi chot so CSDL: {e}")

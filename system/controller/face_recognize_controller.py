@@ -38,7 +38,7 @@ from AI_model.Recognition.torch_recognizer import TorchRecognizer
 # [SỬA] Import các hàm service thật (tên file bạn đã cung cấp)
 from model.face_recognize_service import (
     get_available_sessions, get_session_info, get_roster, mark_present,
-    finalize_attendance  # [MỚI] Import hàm chốt sổ
+    mark_checkout_with_status, finalize_attendance  # [MỚI] Import hàm chốt sổ & điểm danh đầu ra
 )
 
 # Tên class FaceRecognizeController đã đúng
@@ -57,6 +57,7 @@ class FaceRecognizeController:
         self.session_start_time = None
         self.session_end_time = None
         self.session_finalized = False
+        self.class_end_notice_shown = False
 
         # [MỚI] Thêm độ trễ điểm danh để giảm nhận nhầm
         self.attendance_delay_seconds = 5
@@ -160,6 +161,7 @@ class FaceRecognizeController:
             self.session_start_time = None
             self.session_end_time = None
             self.session_finalized = False
+            self.class_end_notice_shown = False
             self.pending_recognitions.clear()
             self.auto_finalize_timer.stop()
         else:
@@ -213,6 +215,7 @@ class FaceRecognizeController:
                 self.view.update_notice(f"Lỗi khi tải danh sách lớp: {e}", "error")
             else:
                 self.session_finalized = False
+                self.class_end_notice_shown = False
                 self.restart_auto_finalize_timer()
 
     def restart_auto_finalize_timer(self):
@@ -220,6 +223,27 @@ class FaceRecognizeController:
         self.auto_finalize_timer.stop()
         if self.session_end_time and self.current_session_id is not None:
             self.auto_finalize_timer.start()
+
+    def _is_in_checkout_window(self):
+        """
+        Trả về True nếu hiện tại đang trong khoảng 15 phút cuối buổi học.
+        Dùng để quyết định có cho phép ghi điểm danh đầu ra hay không.
+        """
+        if self.session_end_time is None:
+            return False
+        today = datetime.today().date()
+        end_datetime = datetime.combine(today, self.session_end_time)
+        checkout_start = end_datetime - timedelta(minutes=15)
+        now = datetime.now()
+        return checkout_start <= now <= end_datetime
+
+    def _is_after_class_end(self):
+        """Kiểm tra đã quá giờ kết thúc buổi học chưa."""
+        if self.session_end_time is None:
+            return False
+        today = datetime.today().date()
+        end_datetime = datetime.combine(today, self.session_end_time)
+        return datetime.now() > end_datetime
 
     def check_auto_finalize(self):
         """Tự động chốt sổ nếu đã quá 15 phút sau giờ kết thúc."""
@@ -373,20 +397,40 @@ class FaceRecognizeController:
             # Kiểm tra xem SV này có trong danh sách lớp không
             if ma_sv in self.student_roster:
                 student_data = self.student_roster[ma_sv]
-                
-                # [QUAN TRỌNG] Kiểm tra xem SV đã điểm danh CHƯA
-                if student_data["status"] == "Vắng":
+
+                # Nếu buổi học đã kết thúc: chỉ hiển thị trạng thái cuối cùng, không ghi thêm
+                if self._is_after_class_end():
+                    color = (0, 255, 0)  # Xanh lá (coi như đã chốt điểm danh)
+                    text = f"{ma_sv} (Check-in Successfull - Lớp đã kết thúc)"
+                    if student_data["status"] != "Vắng" and not self.class_end_notice_shown:
+                        self.view.update_notice(
+                            "Buổi học đã kết thúc. Kết quả điểm danh cuối cùng đã được chốt.",
+                            "info"
+                        )
+                        self.class_end_notice_shown = True
+                    return
+
+                # Quy ước:
+                # - Nếu còn VẮNG hoặc đang trong cửa sổ 15' cuối -> cho phép ghi (điểm danh vào/ra)
+                # - Nếu đã điểm danh đầu giờ và chưa tới 15' cuối -> chỉ hiển thị "Check-in Successfull"
+                should_attempt_write = (
+                    student_data["status"] == "Vắng"
+                    or self._is_in_checkout_window()
+                )
+
+                if should_attempt_write:
                     ready, remaining = self.check_attendance_delay(ma_sv)
                     if ready:
+                        # mark_student_present sẽ tự quyết định: điểm danh vào / đi muộn / điểm danh ra
                         self.mark_student_present(ma_sv, cropped_face_img)
-                        color = (0, 255, 0) # Xanh lá
+                        color = (0, 255, 0)  # Xanh lá
                         text = f"{ma_sv} (Đang ghi...)"
                     else:
-                        color = (0, 165, 255) # Cam
+                        color = (0, 165, 255)  # Cam
                         text = f"{ma_sv} (Waiting {remaining:.1f}s)"
                 else:
-                    # Đã điểm danh rồi
-                    color = (0, 255, 0) # Xanh lá
+                    # Đã điểm danh đầu vào và chưa đến cửa sổ điểm danh ra
+                    color = (0, 255, 0)  # Xanh lá
                     text = f"{ma_sv} (Check-in Successfull)"
             else:
                 # Nhận diện được, nhưng không có trong lớp
@@ -419,12 +463,50 @@ class FaceRecognizeController:
         # 2. Xử lý logic thời gian
         today = datetime.today().date()
         now = datetime.now()
-        
-        # Tạo đối tượng datetime đầy đủ
+
+        # Tạo đối tượng datetime đầy đủ cho giờ bắt đầu/kết thúc
         start_datetime = datetime.combine(today, self.session_start_time)
         grace_end_datetime = start_datetime + timedelta(minutes=15)
         end_datetime = datetime.combine(today, self.session_end_time)
-        
+        checkout_start = None
+        if self.session_end_time is not None:
+            checkout_start = end_datetime - timedelta(minutes=15)
+
+        # --- ƯU TIÊN XỬ LÝ ĐIỂM DANH ĐẦU RA TRONG 15 PHÚT CUỐI BUỔI HỌC ---
+        if checkout_start is not None and checkout_start <= now <= end_datetime:
+            # Xác định trạng thái cuối cùng:
+            # - Nếu chưa điểm danh đầu vào (đang "Vắng") nhưng xuất hiện ở đầu ra -> Đi muộn
+            # - Nếu đã Có mặt/Đi muộn từ trước -> giữ nguyên trạng thái đó
+            if student_data["status"] == "Vắng":
+                final_status = "Đi muộn"
+            else:
+                final_status = student_data["status"]
+
+            image_rel_path = self.save_checkin_face(ma_sv, cropped_face_img)
+            success, message = mark_checkout_with_status(
+                self.current_session_id, student_id, ma_sv, final_status, image_rel_path
+            )
+
+            if success:
+                # Cập nhật trạng thái trong bộ nhớ theo trạng thái cuối
+                self.student_roster[ma_sv]["status"] = final_status
+                self.populate_roster_lists()
+                self.view.update_notice(
+                    f"✅ {student_data['name']} ({ma_sv}) đã điểm danh CUỐI GIỜ lúc {now.strftime('%H:%M:%S')} ({final_status}).",
+                    "success"
+                )
+            else:
+                self.view.update_notice(f"❌ Lỗi khi điểm danh đầu ra {ma_sv}: {message}", "error")
+            return
+
+        # Nếu đã điểm danh đầu giờ rồi và CHƯA vào cửa sổ 15' cuối: chỉ thông báo, không ghi thêm
+        if student_data["status"] != "Vắng" and (checkout_start is None or now < checkout_start):
+            self.view.update_notice(
+                f"ℹ️ {student_data['name']} ({ma_sv}) đã điểm danh ĐẦU GIỜ, chờ đến cuối buổi để điểm danh ra.",
+                "info"
+            )
+            return
+
         status_to_set = None
         notice_message = ""
         notice_level = "info"
@@ -445,10 +527,10 @@ class FaceRecognizeController:
             self.view.update_notice(notice_message, notice_level)
             return
 
-        # 4. Chuẩn bị lưu ảnh và ghi vào CSDL
+        # 4. Chuẩn bị lưu ảnh và ghi vào CSDL (điểm danh đầu vào)
         image_rel_path = self.save_checkin_face(ma_sv, cropped_face_img)
 
-        # 5. Nếu hợp lệ -> Ghi vào CSDL
+        # 5. Nếu hợp lệ -> Ghi vào CSDL (điểm danh đầu vào)
         success, message = mark_present(
             self.current_session_id, student_id, ma_sv, status_to_set, image_rel_path
         )
@@ -457,9 +539,12 @@ class FaceRecognizeController:
             # 6. Cập nhật State (Bộ nhớ)
             self.student_roster[ma_sv]["status"] = status_to_set
             
-            # 7. Cập nhật UI
+            # 7. Cập nhật UI (thông báo rõ là ĐẦU GIỜ)
             notice_suffix = f" ({status_to_set})"
-            self.view.update_notice(f"✅ {student_data['name']} ({ma_sv}) đã điểm danh!{notice_suffix}", "success")
+            self.view.update_notice(
+                f"✅ {student_data['name']} ({ma_sv}) đã điểm danh ĐẦU GIỜ!{notice_suffix}",
+                "success"
+            )
             
             # Cập nhật box "Gần nhất"
             timestamp = now.strftime("%H:%M:%S")
