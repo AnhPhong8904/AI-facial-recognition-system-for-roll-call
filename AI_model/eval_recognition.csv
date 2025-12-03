@@ -1,0 +1,10 @@
+﻿Timestamp;Processed_Faces;Correct_ID;Wrong_ID;Unknown;Accuracy_Percent;Avg_Time_ms
+2025-12-02 23:39:19;288;159;62;67;55,21;24,44
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms
+2025-12-02 23:42:52;288;123;55;110;0,6910;0,5279;0,5985;0,4271;24,90
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:44:53;288;123;55;110;0,6910;0,5279;0,5985;0,4271;25,18;39,71
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:46:09;288;164;124;0;0,5694;1,0000;0,7257;0,5694;25,76;38,82
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:47:04;288;0;0;288;0,0000;0,0000;0,0000;0,0000;26,37;37,92

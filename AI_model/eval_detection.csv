@@ -1,0 +1,10 @@
+﻿Timestamp;Total_Images;Faces_Found;No_Face;Found_Rate_Percent;Avg_Time_ms
+2025-12-02 23:39:19;300;288;12;96,00;35,75
+Timestamp;Total;TP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms
+2025-12-02 23:42:52;300;288;12;1,0000;0,9600;0,9796;0,9600;36,39
+Timestamp;Total;TP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:44:53;300;288;12;1,0000;0,9600;0,9796;0,9600;36,54;27,37
+Timestamp;Total;TP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:46:09;300;288;12;1,0000;0,9600;0,9796;0,9600;37,88;26,40
+Timestamp;Total;TP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-02 23:47:04;300;288;12;1,0000;0,9600;0,9796;0,9600;38,44;26,02
