@@ -171,3 +171,139 @@ def search_records(status, search_by, keyword):
     finally:
         if conn:
             conn.close()
+
+# ==========================================================
+# HÀM TẢI DỮ LIỆU CHO BIỂU ĐỒ (CHARTS)
+# ==========================================================
+
+def get_attendance_by_date(days=7):
+    """
+    Lấy dữ liệu điểm danh theo ngày trong N ngày gần nhất.
+    Trả về: list of tuples (date_str, co_mat, di_muon, vang)
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+        
+        cursor = conn.cursor()
+        
+        sql_query = """
+            SELECT 
+                CAST(dd.THOI_GIAN_DIEMDANH AS DATE) AS Ngay,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Có mặt' THEN 1 ELSE 0 END) AS CoMat,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Đi muộn' THEN 1 ELSE 0 END) AS DiMuon,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Vắng' THEN 1 ELSE 0 END) AS Vang
+            FROM DIEMDANH dd
+            WHERE dd.THOI_GIAN_DIEMDANH >= DATEADD(DAY, -?, GETDATE())
+            GROUP BY CAST(dd.THOI_GIAN_DIEMDANH AS DATE)
+            ORDER BY Ngay ASC;
+        """
+        
+        cursor.execute(sql_query, (days,))
+        rows = cursor.fetchall()
+        
+        # Format: (date_str, co_mat, di_muon, vang)
+        result = []
+        for row in rows:
+            date_obj = row[0]
+            date_str = date_obj.strftime("%d-%m") if isinstance(date_obj, datetime) else str(date_obj)
+            result.append((date_str, row[1] or 0, row[2] or 0, row[3] or 0))
+        
+        return result
+        
+    except Exception as e:
+        print(f"Lỗi khi tải dữ liệu theo ngày (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def get_attendance_by_class():
+    """
+    Lấy dữ liệu điểm danh theo lớp.
+    Trả về: list of tuples (ten_lop, co_mat, di_muon, vang, tong)
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+        
+        cursor = conn.cursor()
+        
+        sql_query = """
+            SELECT 
+                l.TEN_LOP,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Có mặt' THEN 1 ELSE 0 END) AS CoMat,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Đi muộn' THEN 1 ELSE 0 END) AS DiMuon,
+                SUM(CASE WHEN dd.TRANG_THAI = N'Vắng' THEN 1 ELSE 0 END) AS Vang,
+                COUNT(dd.ID_DIEMDANH) AS Tong
+            FROM DIEMDANH dd
+            LEFT JOIN BUOIHOC b ON dd.ID_BUOI = b.ID_BUOI
+            LEFT JOIN LOPHOC l ON b.ID_LOP = l.ID_LOP
+            WHERE l.TEN_LOP IS NOT NULL
+            GROUP BY l.TEN_LOP
+            ORDER BY Tong DESC;
+        """
+        
+        cursor.execute(sql_query)
+        rows = cursor.fetchall()
+        
+        # Format: (ten_lop, co_mat, di_muon, vang, tong)
+        result = []
+        for row in rows:
+            result.append((
+                row[0] or "Không xác định",
+                row[1] or 0,
+                row[2] or 0,
+                row[3] or 0,
+                row[4] or 0
+            ))
+        
+        return result
+        
+    except Exception as e:
+        print(f"Lỗi khi tải dữ liệu theo lớp (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def get_attendance_status_distribution():
+    """
+    Lấy phân bố trạng thái điểm danh (tổng quan).
+    Trả về: dict với keys: 'co_mat', 'di_muon', 'vang'
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+        
+        cursor = conn.cursor()
+        
+        sql_query = """
+            SELECT 
+                SUM(CASE WHEN TRANG_THAI = N'Có mặt' THEN 1 ELSE 0 END) AS CoMat,
+                SUM(CASE WHEN TRANG_THAI = N'Đi muộn' THEN 1 ELSE 0 END) AS DiMuon,
+                SUM(CASE WHEN TRANG_THAI = N'Vắng' THEN 1 ELSE 0 END) AS Vang
+            FROM DIEMDANH;
+        """
+        
+        cursor.execute(sql_query)
+        row = cursor.fetchone()
+        
+        return {
+            'co_mat': row[0] or 0,
+            'di_muon': row[1] or 0,
+            'vang': row[2] or 0
+        }
+        
+    except Exception as e:
+        print(f"Lỗi khi tải phân bố trạng thái (service): {e}")
+        return {'co_mat': 0, 'di_muon': 0, 'vang': 0}
+    finally:
+        if conn:
+            conn.close()

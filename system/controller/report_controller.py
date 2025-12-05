@@ -59,7 +59,7 @@ class ReportController:
     # ==========================================================
     
     def load_initial_data(self):
-        """Tải tất cả dữ liệu (Thẻ, Bảng) khi mở cửa sổ"""
+        """Tải tất cả dữ liệu (Thẻ, Biểu đồ, Bảng) khi mở cửa sổ"""
         print("Đang tải dữ liệu Báo cáo...")
         
         # 1. Tải Thẻ
@@ -68,10 +68,13 @@ class ReportController:
         if stats:
             self.view.update_stat_cards(stats)
         
-        # 2. Tải Bảng (Đi muộn)
+        # 2. Tải Biểu đồ
+        self.load_charts_data()
+        
+        # 3. Tải Bảng (Đi muộn)
         self.load_all_late_data()
         
-        # 3. Tải Bảng (Vắng)
+        # 4. Tải Bảng (Vắng)
         self.load_all_absent_data()
 
     def load_all_late_data(self):
@@ -168,3 +171,29 @@ class ReportController:
         except Exception as e:
             print(f"Lỗi khi xuất CSV: {e}")
             self.view.show_message("Thất bại", f"Không thể lưu file.\nLỗi: {e}", level="error")
+
+    # ==========================================================
+    # HÀM TẢI VÀ HIỂN THỊ BIỂU ĐỒ
+    # ==========================================================
+    
+    def load_charts_data(self):
+        """Tải dữ liệu và cập nhật tất cả biểu đồ"""
+        try:
+            # 1. Biểu đồ tròn: Phân bố trạng thái
+            status_dist = report_service.get_attendance_status_distribution()
+            if status_dist:
+                self.view.update_pie_chart(status_dist)
+            
+            # 2. Biểu đồ đường: Điểm danh theo ngày (7 ngày gần nhất)
+            date_data = report_service.get_attendance_by_date(days=7)
+            if date_data:
+                self.view.update_line_chart(date_data)
+            
+            # 3. Biểu đồ cột: Điểm danh theo lớp
+            class_data = report_service.get_attendance_by_class()
+            if class_data:
+                self.view.update_bar_chart(class_data)
+                
+        except Exception as e:
+            print(f"Lỗi khi tải dữ liệu biểu đồ: {e}")
+            self.view.show_message("Lỗi", f"Không thể tải dữ liệu biểu đồ.\nLỗi: {e}", level="error")

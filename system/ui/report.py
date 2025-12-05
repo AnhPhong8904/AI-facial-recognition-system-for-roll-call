@@ -3,10 +3,17 @@ import os
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
     QGridLayout, QLineEdit, QComboBox, QTableWidget, QTableWidgetItem,
-    QGroupBox, QFrame, QMessageBox, QHeaderView # Thêm QHeaderView
+    QGroupBox, QFrame, QMessageBox, QHeaderView, QTabWidget # Thêm QTabWidget
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize
 from PyQt5.QtGui import QFont, QPixmap, QIcon
+
+# Import matplotlib để vẽ biểu đồ
+import matplotlib
+matplotlib.use('Qt5Agg')  # Backend cho PyQt5
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+import numpy as np
 
 
 class ReportWindow(QWidget):
@@ -117,21 +124,65 @@ class ReportWindow(QWidget):
         stats_layout.addWidget(card_dimuon)
         stats_layout.addWidget(card_vang)
 
-        # ===== MAIN CONTENT AREA (Bảng) =====
-        content_frame = QFrame()
-        content_frame.setStyleSheet("""
-            QFrame {
-                background-color: white;
+        # ===== MAIN CONTENT AREA (Tab: Biểu đồ và Bảng) =====
+        tab_widget = QTabWidget()
+        tab_widget.setStyleSheet("""
+            QTabWidget::pane {
                 border: 3px solid #1E40AF;
                 border-radius: 10px;
+                background-color: white;
+            }
+            QTabBar::tab {
+                background-color: #E5E7EB;
+                color: #1E40AF;
+                padding: 10px 20px;
+                margin-right: 2px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #1E40AF;
+                color: white;
             }
         """)
-        content_layout = QGridLayout(content_frame)
-        content_layout.setContentsMargins(15, 15, 15, 15)
-        content_layout.setSpacing(10)
 
-        # --- Tạo 2 bảng (Đi muộn và Vắng) ---
-        
+        # Tab 1: Biểu đồ
+        charts_tab = QWidget()
+        charts_layout = QVBoxLayout(charts_tab)
+        charts_layout.setContentsMargins(15, 15, 15, 15)
+        charts_layout.setSpacing(15)
+
+        # Tạo 3 biểu đồ
+        charts_grid = QGridLayout()
+        charts_grid.setSpacing(15)
+
+        # Biểu đồ 1: Phân bố trạng thái (Pie Chart)
+        self.chart_pie = self.create_chart_widget("Phân bố trạng thái điểm danh")
+        charts_grid.addWidget(self.chart_pie, 0, 0)
+
+        # Biểu đồ 2: Điểm danh theo ngày (Line Chart)
+        self.chart_line = self.create_chart_widget("Điểm danh theo ngày (7 ngày gần nhất)")
+        charts_grid.addWidget(self.chart_line, 0, 1)
+
+        # Biểu đồ 3: Điểm danh theo lớp (Bar Chart)
+        self.chart_bar = self.create_chart_widget("Điểm danh theo lớp")
+        charts_grid.addWidget(self.chart_bar, 1, 0, 1, 2)
+
+        charts_layout.addLayout(charts_grid)
+        tab_widget.addTab(charts_tab, "📊 Biểu đồ")
+
+        # Tab 2: Bảng dữ liệu
+        tables_tab = QFrame()
+        tables_tab.setStyleSheet("""
+            QFrame {
+                background-color: white;
+            }
+        """)
+        tables_layout = QGridLayout(tables_tab)
+        tables_layout.setContentsMargins(15, 15, 15, 15)
+        tables_layout.setSpacing(10)
+
         # Bảng 1: Sinh viên Đi muộn
         (group_late, 
          self.table_late, 
@@ -157,13 +208,15 @@ class ReportWindow(QWidget):
             color="#DC2626"
         )
 
-        content_layout.addWidget(group_late, 0, 0)
-        content_layout.addWidget(group_absent, 0, 1)
+        tables_layout.addWidget(group_late, 0, 0)
+        tables_layout.addWidget(group_absent, 0, 1)
+
+        tab_widget.addTab(tables_tab, "📋 Bảng dữ liệu")
 
         # ===== FINAL LAYOUT =====
         main_layout.addWidget(header)
         main_layout.addLayout(stats_layout)
-        main_layout.addWidget(content_frame, 1) # Cho bảng chiếm phần lớn
+        main_layout.addWidget(tab_widget, 1) # Cho tab chiếm phần lớn
 
         # Timer update clock
         timer = QTimer(self)
@@ -308,3 +361,129 @@ class ReportWindow(QWidget):
         
         msg_box.setStandardButtons(QMessageBox.Ok)
         msg_box.exec_()
+
+    def create_chart_widget(self, title):
+        """Tạo widget chứa biểu đồ matplotlib"""
+        group = QGroupBox(title)
+        group.setFont(QFont("Arial", 11, QFont.Bold))
+        group.setStyleSheet("""
+            QGroupBox {
+                border: 2px solid #D1D5DB;
+                background-color: #F9FAFB;
+                border-radius: 5px;
+                margin-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                color: #1E40AF;
+            }
+        """)
+        layout = QVBoxLayout(group)
+        layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Tạo Figure và Canvas
+        figure = Figure(figsize=(6, 4), facecolor='white')
+        canvas = FigureCanvas(figure)
+        layout.addWidget(canvas)
+        
+        # Lưu reference để cập nhật sau
+        group.figure = figure
+        group.canvas = canvas
+        
+        return group
+
+    def update_pie_chart(self, data):
+        """Cập nhật biểu đồ tròn (Phân bố trạng thái)"""
+        figure = self.chart_pie.figure
+        figure.clear()
+        ax = figure.add_subplot(111)
+        
+        labels = ['Có mặt', 'Đi muộn', 'Vắng']
+        sizes = [data.get('co_mat', 0), data.get('di_muon', 0), data.get('vang', 0)]
+        colors = ['#86EFAC', '#E9D5FF', '#FCA5A5']
+        explode = (0.05, 0.05, 0.05)  # Tách nhẹ các phần
+        
+        # Chỉ vẽ nếu có dữ liệu
+        if sum(sizes) > 0:
+            ax.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
+                   shadow=True, startangle=90, textprops={'fontsize': 10, 'fontweight': 'bold'})
+            ax.set_title('Phân bố trạng thái điểm danh', fontsize=12, fontweight='bold', pad=10)
+        else:
+            ax.text(0.5, 0.5, 'Chưa có dữ liệu', ha='center', va='center', 
+                   fontsize=14, transform=ax.transAxes)
+        
+        self.chart_pie.canvas.draw()
+
+    def update_line_chart(self, data):
+        """Cập nhật biểu đồ đường (Điểm danh theo ngày)"""
+        figure = self.chart_line.figure
+        figure.clear()
+        ax = figure.add_subplot(111)
+        
+        if not data or len(data) == 0:
+            ax.text(0.5, 0.5, 'Chưa có dữ liệu', ha='center', va='center', 
+                   fontsize=14, transform=ax.transAxes)
+            self.chart_line.canvas.draw()
+            return
+        
+        dates = [row[0] for row in data]
+        co_mat = [row[1] for row in data]
+        di_muon = [row[2] for row in data]
+        vang = [row[3] for row in data]
+        
+        x = np.arange(len(dates))
+        width = 0.25
+        
+        ax.bar(x - width, co_mat, width, label='Có mặt', color='#86EFAC')
+        ax.bar(x, di_muon, width, label='Đi muộn', color='#E9D5FF')
+        ax.bar(x + width, vang, width, label='Vắng', color='#FCA5A5')
+        
+        ax.set_xlabel('Ngày', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Số lượng', fontsize=10, fontweight='bold')
+        ax.set_title('Điểm danh theo ngày (7 ngày gần nhất)', fontsize=12, fontweight='bold', pad=10)
+        ax.set_xticks(x)
+        ax.set_xticklabels(dates, rotation=45, ha='right')
+        ax.legend(loc='upper left', fontsize=9)
+        ax.grid(True, alpha=0.3, linestyle='--')
+        
+        figure.tight_layout()
+        self.chart_line.canvas.draw()
+
+    def update_bar_chart(self, data):
+        """Cập nhật biểu đồ cột (Điểm danh theo lớp)"""
+        figure = self.chart_bar.figure
+        figure.clear()
+        ax = figure.add_subplot(111)
+        
+        if not data or len(data) == 0:
+            ax.text(0.5, 0.5, 'Chưa có dữ liệu', ha='center', va='center', 
+                   fontsize=14, transform=ax.transAxes)
+            self.chart_bar.canvas.draw()
+            return
+        
+        # Chỉ lấy top 10 lớp có nhiều điểm danh nhất
+        top_data = sorted(data, key=lambda x: x[4], reverse=True)[:10]
+        
+        classes = [row[0][:15] + '...' if len(row[0]) > 15 else row[0] for row in top_data]
+        co_mat = [row[1] for row in top_data]
+        di_muon = [row[2] for row in top_data]
+        vang = [row[3] for row in top_data]
+        
+        x = np.arange(len(classes))
+        width = 0.25
+        
+        ax.bar(x - width, co_mat, width, label='Có mặt', color='#86EFAC')
+        ax.bar(x, di_muon, width, label='Đi muộn', color='#E9D5FF')
+        ax.bar(x + width, vang, width, label='Vắng', color='#FCA5A5')
+        
+        ax.set_xlabel('Lớp học', fontsize=10, fontweight='bold')
+        ax.set_ylabel('Số lượng', fontsize=10, fontweight='bold')
+        ax.set_title('Điểm danh theo lớp', fontsize=12, fontweight='bold', pad=10)
+        ax.set_xticks(x)
+        ax.set_xticklabels(classes, rotation=45, ha='right', fontsize=8)
+        ax.legend(loc='upper right', fontsize=9)
+        ax.grid(True, alpha=0.3, linestyle='--', axis='y')
+        
+        figure.tight_layout()
+        self.chart_bar.canvas.draw()
