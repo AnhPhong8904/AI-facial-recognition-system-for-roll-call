@@ -162,7 +162,26 @@ python main_webcam.py
 - Đảm bảo model đã được huấn luyện (`system/models/face_prototypes.pth` tồn tại)
 - Nhấn 'q' để thoát
 
-### 5. Đánh Giá Model
+### 5. Ví Dụ Quy Tắc Điểm Danh Theo Tín Chỉ
+
+Ví dụ một quy tắc áp dụng cho học phần:
+
+- **1 tín chỉ = 6 buổi học**
+- **1 buổi học = 3 tiết**
+- **1 buổi học ≈ 2 tiếng**
+- **Điểm danh**: Hệ thống có thể điểm danh ở **1 trong 3 tiết** của buổi học (ví dụ: tiết 1, 2 hoặc 3), nhưng vẫn ghi nhận trạng thái:
+  - **Đi đúng giờ**
+  - **Đi muộn**
+  - **Vắng**
+- **Quy tắc cấm thi** (gợi ý triển khai):
+  - Với một học phần 1 tín chỉ (6 buổi = 18 tiết), có thể đặt ngưỡng tối đa **số tiết vắng** được phép (ví dụ: vắng quá 30% số tiết sẽ bị cấm thi).
+  - Khi tổng số tiết (hoặc buổi) vắng của sinh viên vượt quá ngưỡng, trong module quản lý điểm danh/báo cáo có thể:
+    - Đánh dấu sinh viên là **“Cấm thi”** cho học phần.
+    - Hiển thị cảnh báo rõ ràng trong phần báo cáo / danh sách thi.
+
+> Ghi chú: Để áp dụng đúng quy tắc của từng trường, bạn có thể mở rộng CSDL (thêm các trường như `so_tiet_trong_buoi`, `so_tiet_tham_du`, `so_tiet_vang`, `cam_thi`) và cập nhật các service/báo cáo tương ứng.
+
+### 6. Đánh Giá Model
 
 Để đánh giá hiệu suất của model:
 

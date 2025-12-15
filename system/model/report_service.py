@@ -307,3 +307,128 @@ def get_attendance_status_distribution():
     finally:
         if conn:
             conn.close()
+
+# ==========================================================
+# HÀM TÍNH CẤM THI THEO SỐ BUỔI / SỐ TIẾT
+# ==========================================================
+
+def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
+    """
+    Tính danh sách sinh viên có nguy cơ/đã bị CẤM THI theo lớp tín chỉ.
+
+    Quy ước (phù hợp mô tả trong README):
+    - 1 tín chỉ = 6 buổi học
+    - 1 buổi = 3 tiết  (tức 1 tín chỉ ≈ 18 tiết)
+    - Mỗi buổi vắng được tính là vắng 3 tiết.
+    - Cấm thi nếu TỈ LỆ SỐ TIẾT VẮNG > max_absent_ratio (mặc định 30%).
+
+    Tham số:
+    - ma_lop: Mã lớp tín chỉ (ví dụ: 'L01')
+    - max_absent_ratio: Ngưỡng tỉ lệ vắng cho phép (0.3 = 30%)
+
+    Trả về list các dict:
+    [
+      {
+        'ma_sv': ...,
+        'ho_ten': ...,
+        'ma_lop': ...,
+        'ten_mon': ...,
+        'so_tin_chi': ...,
+        'tong_buoi': ...,
+        'so_buoi_vang': ...,
+        'tong_tiet': ...,
+        'so_tiet_vang': ...,
+        'ti_le_vang': ...,
+        'cam_thi': True/False
+      },
+      ...
+    ]
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+
+        cursor = conn.cursor()
+
+        # Gộp dữ liệu theo: SV - Lớp - Môn
+        # Đếm tổng số BUOIHOC (buổi) và số buổi vắng (TRANG_THAI = 'Vắng')
+        sql_query = """
+            SELECT 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI,
+                COUNT(DISTINCT b.ID_BUOI) AS TongBuoi,
+                SUM(
+                    CASE 
+                        WHEN dd.TRANG_THAI = N'Vắng' THEN 1 
+                        ELSE 0 
+                    END
+                ) AS SoBuoiVang
+            FROM DANGKY d
+            JOIN SINHVIEN s ON d.ID_SV = s.ID_SV
+            JOIN LOPHOC l ON d.ID_LOP = l.ID_LOP
+            JOIN MONHOC m ON l.ID_MON = m.ID_MON
+            JOIN BUOIHOC b ON b.ID_LOP = l.ID_LOP
+            LEFT JOIN DIEMDANH dd 
+                ON dd.ID_BUOI = b.ID_BUOI 
+               AND dd.ID_SV = s.ID_SV
+            WHERE l.MA_LOP = ?
+            GROUP BY 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI
+            ORDER BY s.MA_SV;
+        """
+
+        cursor.execute(sql_query, (ma_lop,))
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            ma_sv = row[0]
+            ho_ten = row[1]
+            ma_lop_row = row[2]
+            ten_lop_mon = row[3]
+            so_tin_chi = row[4] or 0
+            tong_buoi = row[5] or 0
+            so_buoi_vang = row[6] or 0
+
+            # Nếu chưa có lịch buổi học thì bỏ qua
+            if tong_buoi <= 0:
+                continue
+
+            # Mỗi buổi = 3 tiết
+            tong_tiet = tong_buoi * 3
+            so_tiet_vang = so_buoi_vang * 3
+
+            ti_le_vang = float(so_tiet_vang) / float(tong_tiet) if tong_tiet > 0 else 0.0
+            cam_thi = ti_le_vang > max_absent_ratio
+
+            result.append({
+                "ma_sv": ma_sv,
+                "ho_ten": ho_ten,
+                "ma_lop": ma_lop_row,
+                "ten_mon": ten_lop_mon,
+                "so_tin_chi": so_tin_chi,
+                "tong_buoi": int(tong_buoi),
+                "so_buoi_vang": int(so_buoi_vang),
+                "tong_tiet": int(tong_tiet),
+                "so_tiet_vang": int(so_tiet_vang),
+                "ti_le_vang": ti_le_vang,
+                "cam_thi": cam_thi,
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"Lỗi khi tính danh sách cấm thi (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()

@@ -8,3 +8,11 @@ Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
 2025-12-02 23:46:09;288;164;124;0;0,5694;1,0000;0,7257;0,5694;25,76;38,82
 Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
 2025-12-02 23:47:04;288;0;0;288;0,0000;0,0000;0,0000;0,0000;26,37;37,92
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-07 22:26:42;288;159;62;67;0,7195;0,7035;0,7114;0,5521;25,56;39,13
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-07 22:33:08;288;159;62;67;0,7195;0,7035;0,7114;0,5521;25,60;39,07
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-07 22:36:12;288;162;59;67;0,7330;0,7074;0,7200;0,5625;25,23;39,64
+Timestamp;Processed;TP;FP;FN;Precision;Recall;F1;Accuracy;Avg_Time_ms;FPS
+2025-12-07 22:37:39;288;167;121;0;0,5799;1,0000;0,7341;0,5799;25,34;39,47
