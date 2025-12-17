@@ -200,11 +200,11 @@ class ScheduleWindow(QWidget):
         search_layout.addWidget(self.btn_all)
 
         self.table = QTableWidget()
-        # Sửa đổi cột cho khớp
-        self.table.setColumnCount(7) 
+        # Sửa đổi cột cho khớp: thêm Thứ và Tên môn
+        self.table.setColumnCount(9) 
         self.table.setHorizontalHeaderLabels([
-            "ID Buổi", "Ngày học", "Giờ BĐ", "Giờ KT", 
-            "Phòng học", "Mã Lớp", "Ghi chú"
+            "ID Buổi", "Ngày học", "Thứ", "Giờ BĐ", "Giờ KT", 
+            "Phòng học", "Mã Lớp", "Tên môn", "Ghi chú"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setStyleSheet("background-color: white;")

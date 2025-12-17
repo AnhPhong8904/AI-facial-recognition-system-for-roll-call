@@ -71,6 +71,10 @@ class ScheduleController:
     def load_all_schedules(self):
         """Tải và hiển thị tất cả buổi học lên bảng"""
         print("Đang tải danh sách lịch học...")
+        # Đồng bộ lịch học tự động từ cấu hình lớp (ngày bắt đầu/kết thúc + thứ)
+        sync_info = schedule_service.sync_schedules_from_classes()
+        if sync_info:
+            print(f"Đồng bộ lịch: lớp={sync_info['classes']}, mới={sync_info['inserted']}, cập nhật={sync_info['updated']}, giữ nguyên={sync_info['skipped']}")
         data = schedule_service.get_all_schedules()
         self.view.populate_table(data)
         self.view.search_input.clear()
@@ -97,14 +101,14 @@ class ScheduleController:
             
         selected_row = selected_rows[0].row()
         
-        # Lấy dữ liệu từ bảng
+        # Lấy dữ liệu từ bảng (cột đã bổ sung Thứ và Tên môn)
         id_buoi = self.view.table.item(selected_row, 0).text()
         ngay_hoc_str = self.view.table.item(selected_row, 1).text()
-        gio_bd_str = self.view.table.item(selected_row, 2).text()
-        gio_kt_str = self.view.table.item(selected_row, 3).text()
-        phong_hoc = self.view.table.item(selected_row, 4).text()
-        ma_lop = self.view.table.item(selected_row, 5).text()
-        ghi_chu = self.view.table.item(selected_row, 6).text()
+        gio_bd_str = self.view.table.item(selected_row, 3).text()
+        gio_kt_str = self.view.table.item(selected_row, 4).text()
+        phong_hoc = self.view.table.item(selected_row, 5).text()
+        ma_lop = self.view.table.item(selected_row, 6).text()
+        ghi_chu = self.view.table.item(selected_row, 8).text()
         
         # Điền vào form
         self.view.hidden_id_buoi.setText(id_buoi)

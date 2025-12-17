@@ -305,8 +305,8 @@ def get_classes_for_subject(id_mon):
         # Chuyển đổi định dạng ngày/giờ để hiển thị
         formatted_rows = []
         for row in rows:
-            ngay_bd = row[5].strftime("%d-%m-%Y") if hasattr(row[5], 'strftime') else row[5]
-            ngay_kt = row[6].strftime("%d-%m-%Y") if hasattr(row[6], 'strftime') else row[6]
+            ngay_bd = _format_date_display(row[5])
+            ngay_kt = _format_date_display(row[6])
             gio_bd = _format_time_value(row[8])
             gio_kt = _format_time_value(row[9])
             
@@ -570,6 +570,24 @@ def _format_time_value(value):
     if isinstance(value, str):
         return value[:5]  # Cắt 'HH:MM' từ 'HH:MM:SS'
     return str(value) if value is not None else ""
+
+def _format_date_display(value):
+    """Chuẩn hóa ngày về dd-MM-yyyy để UI đọc đúng với QDate.fromString."""
+    try:
+        if hasattr(value, "strftime"):
+            return value.strftime("%d-%m-%Y")
+        if isinstance(value, str):
+            # Thử parse các định dạng phổ biến
+            for fmt in ["%Y-%m-%d", "%Y/%m/%d", "%d-%m-%Y", "%d/%m/%Y"]:
+                try:
+                    dt = datetime.strptime(value[:10], fmt)
+                    return dt.strftime("%d-%m-%Y")
+                except Exception:
+                    continue
+            return value[:10]
+    except Exception:
+        pass
+    return ""
 
 def delete_class(id_lop):
     """

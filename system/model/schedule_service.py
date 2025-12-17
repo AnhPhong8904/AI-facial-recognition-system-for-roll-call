@@ -1,6 +1,6 @@
 import pyodbc
 from model.connectdb import get_db_connection
-from datetime import date # Cần import date
+from datetime import date, datetime, timedelta # Cần import date
 
 # ==========================================================
 # HÀM TẢI DỮ LIỆU (READ)
@@ -75,7 +75,7 @@ def get_class_details(id_lop):
 
 def get_all_schedules():
     """
-    Tải danh sách tất cả Buổi học (JOIN với Lớp học để lấy Mã Lớp).
+    Tải danh sách buổi học trong 7 ngày tới (JOIN với Lớp học để lấy Mã Lớp, Tên môn, Thứ).
     """
     conn = None
     try:
@@ -84,8 +84,12 @@ def get_all_schedules():
             raise Exception("Không thể kết nối CSDL.")
         
         cursor = conn.cursor()
+        today = date.today()
+        window_end = today + timedelta(days=6)
+        today_str = _format_date_value(today)
+        window_end_str = _format_date_value(window_end)
         
-        # JOIN 2 bảng: BUOIHOC -> LOPHOC
+        # JOIN BUOIHOC -> LOPHOC -> MONHOC để lấy thêm Tên môn; giới hạn trong tuần hiện tại
         sql_query = """
             SELECT 
                 b.ID_BUOI, 
@@ -94,31 +98,160 @@ def get_all_schedules():
                 b.GIO_KET_THUC, 
                 b.PHONG_HOC, 
                 l.MA_LOP,
+                m.TEN_MON,
                 b.GHI_CHU
             FROM BUOIHOC b
             LEFT JOIN LOPHOC l ON b.ID_LOP = l.ID_LOP
-            ORDER BY b.ID_BUOI DESC;
+            LEFT JOIN MONHOC m ON l.ID_MON = m.ID_MON
+            WHERE b.NGAY_HOC BETWEEN ? AND ?
+            ORDER BY b.NGAY_HOC ASC, b.GIO_BAT_DAU ASC;
         """
         
-        cursor.execute(sql_query)
+        cursor.execute(sql_query, (today_str, window_end_str))
         rows = cursor.fetchall()
         
         # Chuyển đổi định dạng ngày và giờ trước khi trả về
         formatted_rows = []
         for row in rows:
             # row[1] là NGAY_HOC, row[2] là GIO_BAT_DAU, row[3] là GIO_KET_THUC
-            ngay_hoc = row[1].strftime("%d-%m-%Y") if isinstance(row[1], date) else row[1]
+            ngay_hoc_raw = row[1]
+            ngay_hoc_str = ngay_hoc_raw.strftime("%d-%m-%Y") if isinstance(ngay_hoc_raw, date) else str(ngay_hoc_raw)
             gio_bd = _format_time_value(row[2])
             gio_kt = _format_time_value(row[3])
+            phong_hoc = row[4]
+            ma_lop = row[5]
+            ten_mon = row[6] if len(row) > 6 else ""
+            ghi_chu = row[7] if len(row) > 7 else ""
+
+            thu_str = _weekday_vn(ngay_hoc_raw)
             
             formatted_rows.append((
-                row[0], ngay_hoc, gio_bd, gio_kt, row[4], row[5], row[6]
+                row[0],            # ID_BUOI
+                ngay_hoc_str,      # Ngày
+                thu_str,           # Thứ
+                gio_bd,            # Giờ BĐ
+                gio_kt,            # Giờ KT
+                phong_hoc,         # Phòng
+                ma_lop,            # Mã lớp
+                ten_mon,           # Tên môn
+                ghi_chu,           # Ghi chú
             ))
             
         return formatted_rows
 
     except Exception as e:
         print(f"Lỗi khi tải danh sách lịch học (service): {e}")
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+# ==========================================================
+# ĐỒNG BỘ LỊCH TỪ KHAI BÁO LỚP HỌC (NGÀY BẮT ĐẦU/KẾT THÚC + THỨ)
+# ==========================================================
+
+def sync_schedules_from_classes():
+    """
+    Sinh hoặc cập nhật BUOIHOC dựa trên thông tin lớp học (LOPHOC).
+    - Chỉ xử lý trong cửa sổ 7 ngày tới để tránh phình dữ liệu (mỗi lần mở sẽ cập nhật tuần kế tiếp).
+    - Dựa vào NGAY_BAT_DAU, NGAY_KET_THUC, THU_HOC, GIO_BĐ/KẾT_THÚC, PHÒNG_HỌC.
+    - Nếu đã có buổi ở ngày đó: cập nhật giờ/phòng theo lớp.
+    - Nếu chưa có: chèn mới.
+    Hàm idempotent, gọi nhiều lần không tạo trùng.
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT ID_LOP, NGAY_BAT_DAU, NGAY_KET_THUC, THU_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC
+            FROM LOPHOC
+        """)
+        classes = cursor.fetchall()
+
+        summary = {
+            "classes": len(classes),
+            "inserted": 0,
+            "updated": 0,
+            "skipped": 0,
+            "window_days": 7,
+        }
+
+        for row in classes:
+            id_lop, ngay_bd, ngay_kt, thu_hoc, gio_bd, gio_kt, phong_hoc = row
+            if not (ngay_bd and ngay_kt and thu_hoc):
+                continue
+
+            weekdays = _parse_weekdays_from_string(str(thu_hoc))
+            if not weekdays:
+                continue
+
+            try:
+                start_date = ngay_bd if isinstance(ngay_bd, date) else datetime.strptime(str(ngay_bd), "%Y-%m-%d").date()
+                end_date = ngay_kt if isinstance(ngay_kt, date) else datetime.strptime(str(ngay_kt), "%Y-%m-%d").date()
+            except Exception:
+                continue
+
+            if end_date < start_date:
+                continue
+
+            # Giới hạn: chỉ sinh lịch trong 7 ngày kế tiếp tính từ hôm nay
+            today = date.today()
+            window_end = min(end_date, today + timedelta(days=6))
+            current = max(start_date, today)
+            gio_bd_str = _format_time_value(gio_bd)
+            gio_kt_str = _format_time_value(gio_kt)
+            phong_hoc_str = (phong_hoc or "").strip()
+
+            while current <= window_end:
+                current_str = _format_date_value(current)
+                if current.weekday() in weekdays:
+                    cursor.execute(
+                        "SELECT ID_BUOI, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC FROM BUOIHOC WHERE ID_LOP = ? AND NGAY_HOC = ?",
+                        (id_lop, current_str)
+                    )
+                    existing = cursor.fetchone()
+
+                    if existing:
+                        id_buoi, gio_bd_old, gio_kt_old, phong_old = existing
+                        need_update = (
+                            _format_time_value(gio_bd_old) != gio_bd_str or
+                            _format_time_value(gio_kt_old) != gio_kt_str or
+                            (phong_old or "").strip() != phong_hoc_str
+                        )
+                        if need_update:
+                            cursor.execute(
+                                """
+                                UPDATE BUOIHOC
+                                SET GIO_BAT_DAU = ?, GIO_KET_THUC = ?, PHONG_HOC = ?
+                                WHERE ID_BUOI = ?
+                                """,
+                                (gio_bd_str, gio_kt_str, phong_hoc_str, id_buoi)
+                            )
+                            summary["updated"] += 1
+                        else:
+                            summary["skipped"] += 1
+                    else:
+                        cursor.execute(
+                            """
+                            INSERT INTO BUOIHOC (ID_LOP, NGAY_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC, GHI_CHU)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                            """,
+                            (id_lop, current_str, gio_bd_str, gio_kt_str, phong_hoc_str, f"Tự động tạo cho lớp {id_lop}")
+                        )
+                        summary["inserted"] += 1
+                current += timedelta(days=1)
+
+        conn.commit()
+        return summary
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print(f"Lỗi khi đồng bộ lịch học từ lớp học: {e}")
         return None
     finally:
         if conn:
@@ -401,6 +534,64 @@ def _format_time_value(value):
     if isinstance(value, str):
         return value[:5]
     return str(value) if value is not None else ""
+
+def _weekday_vn(value):
+    """Trả về chuỗi Thứ tiếng Việt từ giá trị date/datetime/str."""
+    try:
+        if isinstance(value, date) and not isinstance(value, datetime):
+            d = value
+        elif isinstance(value, datetime):
+            d = value.date()
+        elif isinstance(value, str):
+            d = datetime.strptime(value[:10], "%Y-%m-%d").date()
+        else:
+            return ""
+        mapping = {
+            0: "Thứ 2",
+            1: "Thứ 3",
+            2: "Thứ 4",
+            3: "Thứ 5",
+            4: "Thứ 6",
+            5: "Thứ 7",
+            6: "Chủ nhật",
+        }
+        return mapping.get(d.weekday(), "")
+    except Exception:
+        return ""
+
+def _format_date_value(value):
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, str):
+        return value[:10]
+    if isinstance(value, datetime):
+        return value.date().strftime("%Y-%m-%d")
+    return str(value) if value is not None else ""
+
+def _parse_weekdays_from_string(thu_hoc_str):
+    """
+    Chuyển chuỗi 'Thứ 2, Thứ 4, Thứ 6' thành danh sách weekday (0=Mon ... 6=Sun).
+    Hỗ trợ cả định dạng ngắn như '2,4,6'.
+    """
+    if not thu_hoc_str:
+        return []
+
+    thu_hoc_str = thu_hoc_str.lower()
+    tokens = [t.strip() for t in thu_hoc_str.replace(";", ",").split(",") if t.strip()]
+    weekdays = set()
+
+    for token in tokens:
+        t = token
+        if "chủ nhật" in t or "chu nhat" in t or "cn" in t:
+            weekdays.add(6)
+            continue
+
+        for d, wd in [("2", 0), ("3", 1), ("4", 2), ("5", 3), ("6", 4), ("7", 5)]:
+            if d in t:
+                weekdays.add(wd)
+                break
+
+    return sorted(list(weekdays))
 
 def _fetch_all_known_rooms(cursor):
     sql_rooms = """
