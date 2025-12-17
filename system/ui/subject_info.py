@@ -1,9 +1,25 @@
 import sys
 import os
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout, QGridLayout,
-    QLineEdit, QComboBox, QTableWidget, QTableWidgetItem, QHeaderView, 
-    QGroupBox, QFrame, QMessageBox, QSpinBox, QTimeEdit, QSplitter
+    QApplication,
+    QWidget,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QHBoxLayout,
+    QGridLayout,
+    QLineEdit,
+    QComboBox,
+    QTableWidget,
+    QTableWidgetItem,
+    QHeaderView,
+    QGroupBox,
+    QFrame,
+    QMessageBox,
+    QSpinBox,
+    QTimeEdit,
+    QDateEdit,
+    QSplitter,
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize, QDate, QTime
 from PyQt5.QtGui import QFont, QIcon, QPixmap
@@ -205,7 +221,18 @@ class SubjectWindow(QWidget):
         # Dùng một QLineEdit ẩn để lưu ID_LOP khi chọn từ bảng
         self.hidden_id_lop = QLineEdit()
 
-        labels = ["Mã Lớp:", "Tên Lớp:", "Năm học:", "Học kỳ:", "Thứ học:", "Giờ bắt đầu:", "Giờ kết thúc:", "Phòng học:"]
+        labels = [
+            "Mã Lớp:",
+            "Tên Lớp:",
+            "Năm học:",
+            "Học kỳ:",
+            "Ngày bắt đầu:",
+            "Ngày kết thúc:",
+            "Thứ học:",
+            "Giờ bắt đầu:",
+            "Giờ kết thúc:",
+            "Phòng học:",
+        ]
         
         for i, label_text in enumerate(labels):
             label = QLabel(label_text)
@@ -214,9 +241,15 @@ class SubjectWindow(QWidget):
             if label_text == "Giờ bắt đầu:" or label_text == "Giờ kết thúc:":
                 input_field = QTimeEdit()
                 input_field.setDisplayFormat("HH:mm")
+            elif label_text in ["Ngày bắt đầu:", "Ngày kết thúc:"]:
+                input_field = QDateEdit()
+                input_field.setDisplayFormat("dd-MM-yyyy")
+                input_field.setCalendarPopup(True)
+                input_field.setDate(QDate.currentDate())
             elif label_text == "Thứ học:":
-                input_field = QComboBox()
-                input_field.addItems(["Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"])
+                # Cho phép nhập nhiều thứ, ví dụ: "Thứ 2, Thứ 4, Thứ 6"
+                input_field = QLineEdit()
+                input_field.setPlaceholderText("VD: Thứ 2, Thứ 4, Thứ 6")
             else:
                 input_field = QLineEdit()
             
@@ -245,8 +278,20 @@ class SubjectWindow(QWidget):
         
         # Bảng Lớp học
         self.table_class = QTableWidget()
-        self.table_class.setColumnCount(9)
-        self.table_class.setHorizontalHeaderLabels(["ID Lớp", "Mã Lớp", "Tên Lớp", "Năm học", "Học kỳ", "Thứ", "Giờ BĐ", "Giờ KT", "Phòng học"])
+        self.table_class.setColumnCount(11)
+        self.table_class.setHorizontalHeaderLabels([
+            "ID Lớp",
+            "Mã Lớp",
+            "Tên Lớp",
+            "Năm học",
+            "Học kỳ",
+            "Ngày bắt đầu",
+            "Ngày kết thúc",
+            "Thứ",
+            "Giờ BĐ",
+            "Giờ KT",
+            "Phòng học",
+        ])
         self.table_class.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_class.setSelectionBehavior(QTableWidget.SelectRows)
         self.table_class.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -362,7 +407,9 @@ class SubjectWindow(QWidget):
             "ten_lop": self.class_inputs["Tên Lớp:"].text(),
             "nam_hoc": self.class_inputs["Năm học:"].text(),
             "hoc_ky": self.class_inputs["Học kỳ:"].text(),
-            "thu_hoc": self.class_inputs["Thứ học:"].currentText(),
+            "ngay_bd": self.class_inputs["Ngày bắt đầu:"].date().toString("yyyy-MM-dd"),
+            "ngay_kt": self.class_inputs["Ngày kết thúc:"].date().toString("yyyy-MM-dd"),
+            "thu_hoc": self.class_inputs["Thứ học:"].text(),
             "gio_bd": self.class_inputs["Giờ bắt đầu:"].time().toString("HH:mm"),
             "gio_kt": self.class_inputs["Giờ kết thúc:"].time().toString("HH:mm"),
             "phong_hoc": self.class_inputs["Phòng học:"].text()
@@ -374,7 +421,9 @@ class SubjectWindow(QWidget):
         self.class_inputs["Tên Lớp:"].clear()
         self.class_inputs["Năm học:"].clear()
         self.class_inputs["Học kỳ:"].clear()
-        self.class_inputs["Thứ học:"].setCurrentIndex(0)
+        self.class_inputs["Ngày bắt đầu:"].setDate(QDate.currentDate())
+        self.class_inputs["Ngày kết thúc:"].setDate(QDate.currentDate())
+        self.class_inputs["Thứ học:"].clear()
         self.class_inputs["Giờ bắt đầu:"].setTime(QTime(7, 0))
         self.class_inputs["Giờ kết thúc:"].setTime(QTime(9, 0))
         self.class_inputs["Phòng học:"].clear()

@@ -60,7 +60,11 @@ def get_class_details(id_lop):
         
         cursor.execute(sql_query, (id_lop,))
         row = cursor.fetchone()
-        return row # Trả về tuple (TEN_MON, HO_TEN, GIO_BD, GIO_KT)
+        if not row:
+            return None
+        # Chuẩn hóa giờ về HH:MM để view setTime() luôn đúng giờ mới nhất
+        ten_mon, ho_ten, gio_bd, gio_kt = row
+        return ten_mon, ho_ten, _format_time_value(gio_bd), _format_time_value(gio_kt)
 
     except Exception as e:
         print(f"Lỗi khi tải chi tiết lớp học (service): {e}")
@@ -104,8 +108,8 @@ def get_all_schedules():
         for row in rows:
             # row[1] là NGAY_HOC, row[2] là GIO_BAT_DAU, row[3] là GIO_KET_THUC
             ngay_hoc = row[1].strftime("%d-%m-%Y") if isinstance(row[1], date) else row[1]
-            gio_bd = row[2].strftime("%H:%M") if hasattr(row[2], 'strftime') else row[2]
-            gio_kt = row[3].strftime("%H:%M") if hasattr(row[3], 'strftime') else row[3]
+            gio_bd = _format_time_value(row[2])
+            gio_kt = _format_time_value(row[3])
             
             formatted_rows.append((
                 row[0], ngay_hoc, gio_bd, gio_kt, row[4], row[5], row[6]
@@ -334,8 +338,8 @@ def search_schedules(search_by, keyword):
         formatted_rows = []
         for row in rows:
             ngay_hoc = row[1].strftime("%d-%m-%Y") if isinstance(row[1], date) else row[1]
-            gio_bd = row[2].strftime("%H:%M") if hasattr(row[2], 'strftime') else row[2]
-            gio_kt = row[3].strftime("%H:%M") if hasattr(row[3], 'strftime') else row[3]
+            gio_bd = _format_time_value(row[2])
+            gio_kt = _format_time_value(row[3])
             
             formatted_rows.append((
                 row[0], ngay_hoc, gio_bd, gio_kt, row[4], row[5], row[6]

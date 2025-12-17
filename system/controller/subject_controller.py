@@ -245,16 +245,18 @@ class SubjectController:
             
         selected_row = selected_rows[0].row()
         
-        # Lấy dữ liệu từ bảng
+        # Lấy dữ liệu từ bảng (theo thứ tự cột trong UI)
         id_lop = self.view.table_class.item(selected_row, 0).text()
         ma_lop = self.view.table_class.item(selected_row, 1).text()
         ten_lop = self.view.table_class.item(selected_row, 2).text()
         nam_hoc = self.view.table_class.item(selected_row, 3).text()
         hoc_ky = self.view.table_class.item(selected_row, 4).text()
-        thu_hoc = self.view.table_class.item(selected_row, 5).text()
-        gio_bd = self.view.table_class.item(selected_row, 6).text()
-        gio_kt = self.view.table_class.item(selected_row, 7).text()
-        phong_hoc = self.view.table_class.item(selected_row, 8).text()
+        ngay_bd = self.view.table_class.item(selected_row, 5).text()
+        ngay_kt = self.view.table_class.item(selected_row, 6).text()
+        thu_hoc = self.view.table_class.item(selected_row, 7).text()
+        gio_bd = self.view.table_class.item(selected_row, 8).text()
+        gio_kt = self.view.table_class.item(selected_row, 9).text()
+        phong_hoc = self.view.table_class.item(selected_row, 10).text()
         
         # Điền vào form Lớp học
         self.view.hidden_id_lop.setText(id_lop)
@@ -262,12 +264,14 @@ class SubjectController:
         self.view.class_inputs["Tên Lớp:"].setText(ten_lop)
         self.view.class_inputs["Năm học:"].setText(nam_hoc)
         self.view.class_inputs["Học kỳ:"].setText(hoc_ky)
+        # Ngày bắt đầu / kết thúc
+        if ngay_bd:
+            self.view.class_inputs["Ngày bắt đầu:"].setDate(QDate.fromString(ngay_bd, "dd-MM-yyyy"))
+        if ngay_kt:
+            self.view.class_inputs["Ngày kết thúc:"].setDate(QDate.fromString(ngay_kt, "dd-MM-yyyy"))
         self.view.class_inputs["Phòng học:"].setText(phong_hoc)
-        
-        # Xử lý ComboBox "Thứ học"
-        index = self.view.class_inputs["Thứ học:"].findText(thu_hoc, Qt.MatchExactly)
-        if index != -1:
-            self.view.class_inputs["Thứ học:"].setCurrentIndex(index)
+        # Thứ học (text, có thể nhiều thứ, vd: "Thứ 2, Thứ 4, Thứ 6")
+        self.view.class_inputs["Thứ học:"].setText(thu_hoc)
             
         # Xử lý QTimeEdit "Giờ"
         self.view.class_inputs["Giờ bắt đầu:"].setTime(QTime.fromString(gio_bd, "HH:mm"))

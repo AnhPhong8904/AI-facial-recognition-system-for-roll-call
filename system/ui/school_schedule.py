@@ -242,9 +242,10 @@ class ScheduleWindow(QWidget):
             for id_lop, ma_lop, ten_lop in classes_data:
                 self.combo_lophoc.addItem(f"{ma_lop} - {ten_lop}", id_lop)
     
-    def set_class_details(self, details):
+    def set_class_details(self, details, update_times=True):
         """
         Điền chi tiết (Tên môn, Tên GV, Giờ BĐ, Giờ KT)
+        update_times: khi False, giữ nguyên giờ hiện tại trên form
         """
         if details:
             # [SỬA] Nhận 4 giá trị
@@ -254,21 +255,22 @@ class ScheduleWindow(QWidget):
             self.line_ten_gv.setText(ten_gv if ten_gv else "N/A")
             
             # [MỚI] Tự động điền giờ
-            if gio_bd:
-                # Chuyển đổi (ví dụ: datetime.time(7, 0)) sang QTime
-                if isinstance(gio_bd, str):
-                     # Xử lý trường hợp CSDL trả về string '07:00:00'
-                    time_str = gio_bd.split('.')[0] # Bỏ milisecond
-                    self.time_bat_dau.setTime(QTime.fromString(time_str, "HH:mm:ss"))
-                elif hasattr(gio_bd, 'strftime'): # Xử lý datetime.time
-                    self.time_bat_dau.setTime(QTime(gio_bd.hour, gio_bd.minute))
-                
-            if gio_kt:
-                if isinstance(gio_kt, str):
-                    time_str = gio_kt.split('.')[0]
-                    self.time_ket_thuc.setTime(QTime.fromString(time_str, "HH:mm:ss"))
-                elif hasattr(gio_kt, 'strftime'):
-                    self.time_ket_thuc.setTime(QTime(gio_kt.hour, gio_kt.minute))
+            if update_times:
+                if gio_bd:
+                    # Chuyển đổi (ví dụ: datetime.time(7, 0)) sang QTime
+                    if isinstance(gio_bd, str):
+                        # Xử lý trường hợp CSDL trả về string '07:00:00'
+                        time_str = gio_bd.split('.')[0] # Bỏ milisecond
+                        self.time_bat_dau.setTime(QTime.fromString(time_str, "HH:mm:ss"))
+                    elif hasattr(gio_bd, 'strftime'): # Xử lý datetime.time
+                        self.time_bat_dau.setTime(QTime(gio_bd.hour, gio_bd.minute))
+                    
+                if gio_kt:
+                    if isinstance(gio_kt, str):
+                        time_str = gio_kt.split('.')[0]
+                        self.time_ket_thuc.setTime(QTime.fromString(time_str, "HH:mm:ss"))
+                    elif hasattr(gio_kt, 'strftime'):
+                        self.time_ket_thuc.setTime(QTime(gio_kt.hour, gio_kt.minute))
                 
         else:
             self.line_ten_mon.clear()

@@ -1,6 +1,6 @@
 import pyodbc
 from model.connectdb import get_db_connection
-from datetime import date
+from datetime import date, datetime, timedelta
 
 # ==========================================================
 # --- PHẦN 1: HÀM XỬ LÝ MÔN HỌC (MASTER) ---
@@ -283,8 +283,17 @@ def get_classes_for_subject(id_mon):
         # Chỉ lấy từ bảng LOPHOC, lọc theo ID_MON
         sql_query = """
             SELECT 
-                ID_LOP, MA_LOP, TEN_LOP, NAM_HOC, HOC_KY, 
-                THU_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC
+                ID_LOP,
+                MA_LOP,
+                TEN_LOP,
+                NAM_HOC,
+                HOC_KY,
+                NGAY_BAT_DAU,
+                NGAY_KET_THUC,
+                THU_HOC,
+                GIO_BAT_DAU,
+                GIO_KET_THUC,
+                PHONG_HOC
             FROM LOPHOC
             WHERE ID_MON = ?
             ORDER BY ID_LOP DESC;
@@ -293,14 +302,26 @@ def get_classes_for_subject(id_mon):
         cursor.execute(sql_query, (id_mon,))
         rows = cursor.fetchall()
         
-        # Chuyển đổi định dạng giờ
+        # Chuyển đổi định dạng ngày/giờ để hiển thị
         formatted_rows = []
         for row in rows:
-            gio_bd = row[6].strftime("%H:%M") if hasattr(row[6], 'strftime') else row[6]
-            gio_kt = row[7].strftime("%H:%M") if hasattr(row[7], 'strftime') else row[7]
+            ngay_bd = row[5].strftime("%d-%m-%Y") if hasattr(row[5], 'strftime') else row[5]
+            ngay_kt = row[6].strftime("%d-%m-%Y") if hasattr(row[6], 'strftime') else row[6]
+            gio_bd = _format_time_value(row[8])
+            gio_kt = _format_time_value(row[9])
             
             formatted_rows.append((
-                row[0], row[1], row[2], row[3], row[4], row[5], gio_bd, gio_kt, row[8]
+                row[0],  # ID_LOP
+                row[1],  # MA_LOP
+                row[2],  # TEN_LOP
+                row[3],  # NAM_HOC
+                row[4],  # HOC_KY
+                ngay_bd, # NGAY_BAT_DAU
+                ngay_kt, # NGAY_KET_THUC
+                row[7],  # THU_HOC
+                gio_bd,  # GIO_BAT_DAU
+                gio_kt,  # GIO_KET_THUC
+                row[10], # PHONG_HOC
             ))
             
         return formatted_rows
@@ -330,22 +351,61 @@ def add_class(data, id_mon):
         if cursor.fetchone():
             raise Exception(f"Mã lớp '{data['ma_lop']}' đã tồn tại.")
 
+        # Bắt đầu transaction
+        conn.autocommit = False
+
         sql_insert = """
             INSERT INTO LOPHOC (
-                ID_MON, MA_LOP, TEN_LOP, NAM_HOC, HOC_KY, 
-                THU_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC
+                ID_MON,
+                MA_LOP,
+                TEN_LOP,
+                NAM_HOC,
+                HOC_KY,
+                NGAY_BAT_DAU,
+                NGAY_KET_THUC,
+                THU_HOC,
+                GIO_BAT_DAU,
+                GIO_KET_THUC,
+                PHONG_HOC
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
         """
         params = (
             id_mon,
-            data["ma_lop"], data["ten_lop"], data["nam_hoc"], data["hoc_ky"],
-            data["thu_hoc"], data["gio_bd"], data["gio_kt"], data["phong_hoc"]
+            data["ma_lop"],
+            data["ten_lop"],
+            data["nam_hoc"],
+            data["hoc_ky"],
+            data["ngay_bd"],
+            data["ngay_kt"],
+            data["thu_hoc"],
+            data["gio_bd"],
+            data["gio_kt"],
+            data["phong_hoc"],
         )
         
         cursor.execute(sql_insert, params)
+
+        # Lấy ID_LOP vừa thêm
+        cursor.execute("SELECT SCOPE_IDENTITY()")
+        row = cursor.fetchone()
+        id_lop_new = int(row[0]) if row and row[0] is not None else None
+
+        # Tự động sinh các BUOIHOC theo khoảng ngày và thứ học
+        if id_lop_new:
+            _auto_generate_buoi_hoc_for_class(
+                cursor=cursor,
+                id_lop=id_lop_new,
+                ngay_bd_str=data["ngay_bd"],
+                ngay_kt_str=data["ngay_kt"],
+                thu_hoc_str=data["thu_hoc"],
+                gio_bd=data["gio_bd"],
+                gio_kt=data["gio_kt"],
+                phong_hoc=data["phong_hoc"],
+            )
+
         conn.commit()
-        return True, "Thêm lớp học thành công."
+        return True, "Thêm lớp học thành công và đã tự động tạo lịch học."
 
     except Exception as e:
         if conn:
@@ -377,14 +437,30 @@ def update_class(data):
 
         sql_update = """
             UPDATE LOPHOC 
-            SET MA_LOP = ?, TEN_LOP = ?, NAM_HOC = ?, HOC_KY = ?, 
-                THU_HOC = ?, GIO_BAT_DAU = ?, GIO_KET_THUC = ?, PHONG_HOC = ?
+            SET MA_LOP = ?,
+                TEN_LOP = ?,
+                NAM_HOC = ?,
+                HOC_KY = ?,
+                NGAY_BAT_DAU = ?,
+                NGAY_KET_THUC = ?,
+                THU_HOC = ?,
+                GIO_BAT_DAU = ?,
+                GIO_KET_THUC = ?,
+                PHONG_HOC = ?
             WHERE ID_LOP = ?;
         """
         params = (
-            data["ma_lop"], data["ten_lop"], data["nam_hoc"], data["hoc_ky"],
-            data["thu_hoc"], data["gio_bd"], data["gio_kt"], data["phong_hoc"],
-            data["id_lop"]
+            data["ma_lop"],
+            data["ten_lop"],
+            data["nam_hoc"],
+            data["hoc_ky"],
+            data["ngay_bd"],
+            data["ngay_kt"],
+            data["thu_hoc"],
+            data["gio_bd"],
+            data["gio_kt"],
+            data["phong_hoc"],
+            data["id_lop"],
         )
         
         cursor.execute(sql_update, params)
@@ -403,6 +479,97 @@ def update_class(data):
     finally:
         if conn:
             conn.close()
+
+
+# ==========================================================
+# HÀM PHỤ: TỰ ĐỘNG SINH BUỔI HỌC THEO KHOẢNG NGÀY + THỨ
+# ==========================================================
+
+def _parse_weekdays_from_string(thu_hoc_str):
+    """
+    Chuyển chuỗi 'Thứ 2, Thứ 4, Thứ 6' thành danh sách weekday (0=Mon ... 6=Sun).
+    Hỗ trợ cả định dạng ngắn như '2,4,6'.
+    """
+    if not thu_hoc_str:
+        return []
+
+    thu_hoc_str = thu_hoc_str.lower()
+    tokens = [t.strip() for t in thu_hoc_str.replace(";", ",").split(",") if t.strip()]
+    weekdays = set()
+
+    for token in tokens:
+        t = token
+        if "chủ nhật" in t or "chu nhat" in t or "cn" in t:
+            weekdays.add(6)
+            continue
+
+        # Tìm chữ số trong token
+        for d, wd in [("2", 0), ("3", 1), ("4", 2), ("5", 3), ("6", 4), ("7", 5)]:
+            if d in t:
+                weekdays.add(wd)
+                break
+
+    return sorted(list(weekdays))
+
+
+def _auto_generate_buoi_hoc_for_class(
+    cursor,
+    id_lop,
+    ngay_bd_str,
+    ngay_kt_str,
+    thu_hoc_str,
+    gio_bd,
+    gio_kt,
+    phong_hoc,
+):
+    """
+    Tự động sinh các bản ghi BUOIHOC cho một lớp:
+    - Từ ngày bắt đầu -> ngày kết thúc
+    - Theo các thứ học đã khai báo
+    - Sử dụng cùng giờ bắt đầu/kết thúc và phòng học
+    """
+    try:
+        if not (ngay_bd_str and ngay_kt_str and thu_hoc_str):
+            return
+
+        weekdays = _parse_weekdays_from_string(thu_hoc_str)
+        if not weekdays:
+            return
+
+        start_date = datetime.strptime(ngay_bd_str, "%Y-%m-%d").date()
+        end_date = datetime.strptime(ngay_kt_str, "%Y-%m-%d").date()
+        if end_date < start_date:
+            return
+
+        current = start_date
+        while current <= end_date:
+            if current.weekday() in weekdays:
+                sql_insert_buoi = """
+                    INSERT INTO BUOIHOC (ID_LOP, NGAY_HOC, GIO_BAT_DAU, GIO_KET_THUC, PHONG_HOC, GHI_CHU)
+                    VALUES (?, ?, ?, ?, ?, ?);
+                """
+                params_buoi = (
+                    id_lop,
+                    current,
+                    gio_bd,
+                    gio_kt,
+                    phong_hoc,
+                    f"Tự động tạo cho lớp {id_lop}",
+                )
+                cursor.execute(sql_insert_buoi, params_buoi)
+
+            current += timedelta(days=1)
+    except Exception as e:
+        print(f"Lỗi khi tự động sinh buổi học cho lớp {id_lop}: {e}")
+
+
+def _format_time_value(value):
+    """Chuẩn hóa về chuỗi HH:MM cho mọi kiểu (time, datetime, str)."""
+    if hasattr(value, "strftime"):
+        return value.strftime("%H:%M")
+    if isinstance(value, str):
+        return value[:5]  # Cắt 'HH:MM' từ 'HH:MM:SS'
+    return str(value) if value is not None else ""
 
 def delete_class(id_lop):
     """

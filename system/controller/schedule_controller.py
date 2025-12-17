@@ -119,8 +119,16 @@ class ScheduleController:
         # Tìm và set ComboBox Lớp học
         combo = self.view.combo_lophoc
         index = combo.findText(ma_lop, Qt.MatchContains)
+        combo.blockSignals(True)
         if index != -1:
             combo.setCurrentIndex(index)
+        combo.blockSignals(False)
+
+        # Cập nhật thông tin môn/GV nhưng giữ nguyên giờ đã chọn từ bảng
+        id_lop = combo.currentData()
+        if id_lop is not None:
+            details = schedule_service.get_class_details(id_lop)
+            self.view.set_class_details(details, update_times=False)
             
         # Không cho sửa Lớp học khi đã chọn (để Cập nhật/Xóa)
         self.view.combo_lophoc.setEnabled(False)
