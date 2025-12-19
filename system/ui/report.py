@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
     QGroupBox, QFrame, QMessageBox, QHeaderView, QTabWidget # Thêm QTabWidget
 )
 from PyQt5.QtCore import Qt, QTimer, QDateTime, QSize
-from PyQt5.QtGui import QFont, QPixmap, QIcon
+from PyQt5.QtGui import QFont, QPixmap, QIcon, QColor
 
 # Import matplotlib để vẽ biểu đồ
 import matplotlib
@@ -212,6 +212,32 @@ class ReportWindow(QWidget):
         tables_layout.addWidget(group_absent, 0, 1)
 
         tab_widget.addTab(tables_tab, "📋 Bảng dữ liệu")
+        
+        # Tab 3: Thống kê điểm danh theo sinh viên
+        stats_tab = QFrame()
+        stats_tab.setStyleSheet("""
+            QFrame {
+                background-color: white;
+            }
+        """)
+        stats_layout = QVBoxLayout(stats_tab)
+        stats_layout.setContentsMargins(15, 15, 15, 15)
+        stats_layout.setSpacing(10)
+        
+        (group_stats, 
+         self.table_stats, 
+         self.search_by_stats, 
+         self.search_input_stats,
+         self.btn_search_stats, 
+         self.btn_all_stats, 
+         self.btn_csv_stats) = self.create_table_section(
+            "Thống kê điểm danh theo sinh viên",
+            ["Mã SV", "Tên SV", "Mã Lớp", "Tên Môn", "Loại", "Tổng buổi", "Vắng", "Tổng tiết", "Tiết vắng", "Tỷ lệ vắng", "Trạng thái"],
+            color="#1E40AF"
+        )
+        
+        stats_layout.addWidget(group_stats)
+        tab_widget.addTab(stats_tab, "📊 Thống kê điểm danh")
 
         # ===== FINAL LAYOUT =====
         main_layout.addWidget(header)
@@ -337,6 +363,41 @@ class ReportWindow(QWidget):
                 table_widget.setItem(row_index, col_index, cell_item)
         
         table_widget.resizeColumnsToContents()
+    
+    def populate_stats_table(self, data):
+        """Hiển thị dữ liệu thống kê với màu sắc (đỏ = cấm thi, xanh = đủ điều kiện)"""
+        self.table_stats.setRowCount(0)
+        if not data:
+            return
+            
+        self.table_stats.setRowCount(len(data))
+        for row_index, row_dict in enumerate(data):
+            # Tạo danh sách giá trị theo thứ tự cột
+            row_data = [
+                row_dict.get("ma_sv", ""),
+                row_dict.get("ho_ten", ""),
+                row_dict.get("ma_lop", ""),
+                row_dict.get("ten_mon", ""),
+                row_dict.get("loai_mon", ""),
+                str(row_dict.get("tong_buoi", 0)),
+                str(row_dict.get("so_buoi_vang", 0)),
+                str(row_dict.get("tong_tiet", 0)),
+                str(row_dict.get("so_tiet_vang", 0)),
+                f"{row_dict.get('ti_le_vang', 0) * 100:.1f}%",
+                row_dict.get("trang_thai", "")
+            ]
+            
+            # Xác định màu nền dựa trên trạng thái cấm thi
+            cam_thi = row_dict.get("cam_thi", False)
+            bg_color = "#FCA5A5" if cam_thi else "#86EFAC"  # Đỏ nếu cấm thi, xanh nếu đủ điều kiện
+            
+            for col_index, item_str in enumerate(row_data):
+                cell_item = QTableWidgetItem(str(item_str))
+                cell_item.setFlags(cell_item.flags() & ~Qt.ItemIsEditable)
+                cell_item.setBackground(QtGui.QColor(bg_color))
+                self.table_stats.setItem(row_index, col_index, cell_item)
+        
+        self.table_stats.resizeColumnsToContents()
 
     def update_stat_cards(self, stats_data):
         """Cập nhật 4 thẻ thống kê"""

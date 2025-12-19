@@ -43,6 +43,13 @@ class ReportController:
         self.view.btn_csv_absent.clicked.connect(
             lambda: self.handle_export_csv(self.view.table_absent, "thong_ke_vang")
         )
+        
+        # === Bảng "Thống kê điểm danh" ===
+        self.view.btn_search_stats.clicked.connect(self.handle_search_stats)
+        self.view.btn_all_stats.clicked.connect(self.load_all_stats_data)
+        self.view.btn_csv_stats.clicked.connect(
+            lambda: self.handle_export_csv(self.view.table_stats, "thong_ke_diem_danh")
+        )
 
     def show(self):
         """Hiển thị cửa sổ"""
@@ -76,6 +83,9 @@ class ReportController:
         
         # 4. Tải Bảng (Vắng)
         self.load_all_absent_data()
+        
+        # 5. Tải Bảng (Thống kê điểm danh)
+        self.load_all_stats_data()
 
     def load_all_late_data(self):
         """Tải dữ liệu cho bảng "Đi muộn" """
@@ -90,6 +100,12 @@ class ReportController:
         data = report_service.get_attendance_records_by_status("Vắng")
         self.view.populate_table(self.view.table_absent, data)
         self.view.search_input_absent.clear()
+    
+    def load_all_stats_data(self):
+        """Tải dữ liệu cho bảng "Thống kê điểm danh" """
+        data = report_service.get_student_attendance_statistics()
+        self.view.populate_stats_table(data)
+        self.view.search_input_stats.clear()
 
     # ==========================================================
     # HÀM XỬ LÝ TÌM KIẾM
@@ -118,6 +134,35 @@ class ReportController:
         # ĐỔI TÊN SERVICE
         data = report_service.search_records("Vắng", search_by, keyword)
         self.view.populate_table(self.view.table_absent, data)
+    
+    def handle_search_stats(self):
+        """Tìm kiếm trong bảng "Thống kê điểm danh" """
+        search_by = self.view.search_by_stats.currentText()
+        keyword = self.view.search_input_stats.text()
+        if not keyword:
+            self.view.show_message("Thông báo", "Vui lòng nhập từ khóa.", level="warning")
+            return
+        
+        # Lấy tất cả dữ liệu và lọc
+        all_data = report_service.get_student_attendance_statistics()
+        filtered_data = []
+        
+        keyword_lower = keyword.lower()
+        for row in all_data:
+            if search_by == "Mã Sinh viên":
+                if keyword_lower in (row.get("ma_sv", "") or "").lower():
+                    filtered_data.append(row)
+            elif search_by == "Tên Sinh viên":
+                if keyword_lower in (row.get("ho_ten", "") or "").lower():
+                    filtered_data.append(row)
+            elif search_by == "Mã Lớp":
+                if keyword_lower in (row.get("ma_lop", "") or "").lower():
+                    filtered_data.append(row)
+            elif search_by == "Tên Lớp":
+                if keyword_lower in (row.get("ten_mon", "") or "").lower():
+                    filtered_data.append(row)
+        
+        self.view.populate_stats_table(filtered_data)
         
     # ==========================================================
     # HÀM XỬ LÝ XUẤT CSV (Bật nút)

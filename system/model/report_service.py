@@ -309,18 +309,54 @@ def get_attendance_status_distribution():
             conn.close()
 
 # ==========================================================
+# HÀM PHỤ TRỢ: TÍNH SỐ TIẾT DỰA TRÊN LOẠI MÔN HỌC
+# ==========================================================
+
+def _get_subject_type_from_name(ten_mon):
+    """
+    Xác định loại môn học (LT/TH) dựa trên tên môn học.
+    Nếu tên có chứa "Thực hành", "TH", "Lab" -> TH
+    Ngược lại -> LT (mặc định)
+    """
+    if not ten_mon:
+        return "LT"
+    ten_mon_lower = ten_mon.lower()
+    if any(keyword in ten_mon_lower for keyword in ["thực hành", "thuc hanh", "th", "lab", "laboratory"]):
+        return "TH"
+    return "LT"
+
+def _calculate_total_periods(so_tin_chi, loai_mon):
+    """
+    Tính tổng số tiết dựa trên số tín chỉ và loại môn học.
+    - 1 tín LT = 15 tiết
+    - 1 tín TH = 30 tiết
+    """
+    if loai_mon == "TH":
+        return so_tin_chi * 30
+    else:  # LT
+        return so_tin_chi * 15
+
+def _calculate_total_sessions(total_periods):
+    """
+    Tính tổng số ca học dựa trên số tiết.
+    - 3 tiết = 1 ca học
+    """
+    return total_periods // 3
+
+# ==========================================================
 # HÀM TÍNH CẤM THI THEO SỐ BUỔI / SỐ TIẾT
 # ==========================================================
 
-def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
+def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.2):
     """
     Tính danh sách sinh viên có nguy cơ/đã bị CẤM THI theo lớp tín chỉ.
 
-    Quy ước (phù hợp mô tả trong README):
-    - 1 tín chỉ = 6 buổi học
-    - 1 buổi = 3 tiết  (tức 1 tín chỉ ≈ 18 tiết)
-    - Mỗi buổi vắng được tính là vắng 3 tiết.
-    - Cấm thi nếu TỈ LỆ SỐ TIẾT VẮNG > max_absent_ratio (mặc định 30%).
+    Quy ước mới:
+    - 1 tín LT = 15 tiết
+    - 1 tín TH = 30 tiết
+    - 3 tiết = 1 ca học
+    - Mỗi buổi vắng được tính là vắng 3 tiết (1 ca).
+    - Cấm thi nếu TỈ LỆ SỐ TIẾT VẮNG > max_absent_ratio (mặc định 20%).
 
     Tham số:
     - ma_lop: Mã lớp tín chỉ (ví dụ: 'L01')
@@ -394,7 +430,7 @@ def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
             ma_sv = row[0]
             ho_ten = row[1]
             ma_lop_row = row[2]
-            ten_lop_mon = row[3]
+            ten_mon = row[3]
             so_tin_chi = row[4] or 0
             tong_buoi = row[5] or 0
             so_buoi_vang = row[6] or 0
@@ -403,10 +439,16 @@ def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
             if tong_buoi <= 0:
                 continue
 
-            # Mỗi buổi = 3 tiết
-            tong_tiet = tong_buoi * 3
+            # Xác định loại môn học và tính tổng số tiết
+            loai_mon = _get_subject_type_from_name(ten_mon)
+            tong_tiet_theo_tin_chi = _calculate_total_periods(so_tin_chi, loai_mon)
+            
+            # Tính số tiết thực tế dựa trên số buổi học (mỗi buổi = 3 tiết = 1 ca)
+            tong_tiet_thuc_te = tong_buoi * 3
             so_tiet_vang = so_buoi_vang * 3
-
+            
+            # Sử dụng số tiết thực tế từ buổi học để tính tỷ lệ
+            tong_tiet = tong_tiet_thuc_te
             ti_le_vang = float(so_tiet_vang) / float(tong_tiet) if tong_tiet > 0 else 0.0
             cam_thi = ti_le_vang > max_absent_ratio
 
@@ -414,11 +456,13 @@ def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
                 "ma_sv": ma_sv,
                 "ho_ten": ho_ten,
                 "ma_lop": ma_lop_row,
-                "ten_mon": ten_lop_mon,
+                "ten_mon": ten_mon,
                 "so_tin_chi": so_tin_chi,
+                "loai_mon": loai_mon,
                 "tong_buoi": int(tong_buoi),
                 "so_buoi_vang": int(so_buoi_vang),
                 "tong_tiet": int(tong_tiet),
+                "tong_tiet_theo_tin_chi": int(tong_tiet_theo_tin_chi),
                 "so_tiet_vang": int(so_tiet_vang),
                 "ti_le_vang": ti_le_vang,
                 "cam_thi": cam_thi,
@@ -428,6 +472,124 @@ def get_exam_ban_by_class(ma_lop, max_absent_ratio=0.3):
 
     except Exception as e:
         print(f"Lỗi khi tính danh sách cấm thi (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def get_student_attendance_statistics():
+    """
+    Lấy thống kê điểm danh theo từng sinh viên và lớp học.
+    Tính toán số tiết vắng và xác định trạng thái cấm thi.
+    
+    Trả về list các dict với thông tin:
+    {
+        'ma_sv': ...,
+        'ho_ten': ...,
+        'ma_lop': ...,
+        'ten_mon': ...,
+        'so_tin_chi': ...,
+        'loai_mon': ...,
+        'tong_buoi': ...,
+        'so_buoi_vang': ...,
+        'tong_tiet': ...,
+        'so_tiet_vang': ...,
+        'ti_le_vang': ...,
+        'cam_thi': True/False,
+        'trang_thai': 'Cấm thi' hoặc 'Đủ điều kiện'
+    }
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+
+        cursor = conn.cursor()
+
+        # Lấy tất cả sinh viên đã đăng ký lớp học
+        sql_query = """
+            SELECT 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI,
+                COUNT(DISTINCT b.ID_BUOI) AS TongBuoi,
+                SUM(
+                    CASE 
+                        WHEN dd.TRANG_THAI = N'Vắng' THEN 1 
+                        ELSE 0 
+                    END
+                ) AS SoBuoiVang
+            FROM DANGKY d
+            JOIN SINHVIEN s ON d.ID_SV = s.ID_SV
+            JOIN LOPHOC l ON d.ID_LOP = l.ID_LOP
+            JOIN MONHOC m ON l.ID_MON = m.ID_MON
+            JOIN BUOIHOC b ON b.ID_LOP = l.ID_LOP
+            LEFT JOIN DIEMDANH dd 
+                ON dd.ID_BUOI = b.ID_BUOI 
+               AND dd.ID_SV = s.ID_SV
+            GROUP BY 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI
+            ORDER BY s.MA_SV, l.MA_LOP;
+        """
+
+        cursor.execute(sql_query)
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            ma_sv = row[0]
+            ho_ten = row[1]
+            ma_lop_row = row[2]
+            ten_mon = row[3]
+            so_tin_chi = row[4] or 0
+            tong_buoi = row[5] or 0
+            so_buoi_vang = row[6] or 0
+
+            # Nếu chưa có lịch buổi học thì bỏ qua
+            if tong_buoi <= 0:
+                continue
+
+            # Xác định loại môn học và tính tổng số tiết
+            loai_mon = _get_subject_type_from_name(ten_mon)
+            tong_tiet_theo_tin_chi = _calculate_total_periods(so_tin_chi, loai_mon)
+            
+            # Tính số tiết thực tế dựa trên số buổi học (mỗi buổi = 3 tiết = 1 ca)
+            tong_tiet_thuc_te = tong_buoi * 3
+            so_tiet_vang = so_buoi_vang * 3
+            
+            # Sử dụng số tiết thực tế từ buổi học để tính tỷ lệ
+            tong_tiet = tong_tiet_thuc_te
+            ti_le_vang = float(so_tiet_vang) / float(tong_tiet) if tong_tiet > 0 else 0.0
+            cam_thi = ti_le_vang > 0.2  # 20%
+
+            result.append({
+                "ma_sv": ma_sv,
+                "ho_ten": ho_ten,
+                "ma_lop": ma_lop_row,
+                "ten_mon": ten_mon,
+                "so_tin_chi": so_tin_chi,
+                "loai_mon": loai_mon,
+                "tong_buoi": int(tong_buoi),
+                "so_buoi_vang": int(so_buoi_vang),
+                "tong_tiet": int(tong_tiet),
+                "tong_tiet_theo_tin_chi": int(tong_tiet_theo_tin_chi),
+                "so_tiet_vang": int(so_tiet_vang),
+                "ti_le_vang": ti_le_vang,
+                "cam_thi": cam_thi,
+                "trang_thai": "Cấm thi" if cam_thi else "Đủ điều kiện"
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"Lỗi khi tính thống kê điểm danh sinh viên (service): {e}")
         return []
     finally:
         if conn:
