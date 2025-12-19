@@ -45,10 +45,10 @@ class ReportController:
         )
         
         # === Bảng "Thống kê điểm danh" ===
-        self.view.btn_search_stats.clicked.connect(self.handle_search_stats)
-        self.view.btn_all_stats.clicked.connect(self.load_all_stats_data)
-        self.view.btn_csv_stats.clicked.connect(
-            lambda: self.handle_export_csv(self.view.table_stats, "thong_ke_diem_danh")
+        self.view.list_classes.itemSelectionChanged.connect(self.handle_class_selected)
+        self.view.search_class_input.textChanged.connect(self.handle_search_class)
+        self.view.btn_export_students.clicked.connect(
+            lambda: self.handle_export_csv(self.view.table_students, "thong_ke_sinh_vien")
         )
 
     def show(self):
@@ -85,7 +85,7 @@ class ReportController:
         self.load_all_absent_data()
         
         # 5. Tải Bảng (Thống kê điểm danh)
-        self.load_all_stats_data()
+        self.load_classes_list()
 
     def load_all_late_data(self):
         """Tải dữ liệu cho bảng "Đi muộn" """
@@ -101,11 +101,59 @@ class ReportController:
         self.view.populate_table(self.view.table_absent, data)
         self.view.search_input_absent.clear()
     
-    def load_all_stats_data(self):
-        """Tải dữ liệu cho bảng "Thống kê điểm danh" """
-        data = report_service.get_student_attendance_statistics()
-        self.view.populate_stats_table(data)
-        self.view.search_input_stats.clear()
+    def load_classes_list(self):
+        """Tải danh sách lớp học"""
+        data = report_service.get_classes_list()
+        self.view.populate_classes_list(data)
+        self.all_classes_data = data  # Lưu để tìm kiếm
+    
+    def handle_class_selected(self):
+        """Khi chọn một lớp học, hiển thị danh sách sinh viên"""
+        selected_rows = self.view.list_classes.selectionModel().selectedRows()
+        if not selected_rows:
+            self.view.populate_students_table([])
+            return
+        
+        selected_row = selected_rows[0].row()
+        ma_lop_item = self.view.list_classes.item(selected_row, 0)
+        if not ma_lop_item:
+            return
+        
+        ma_lop = ma_lop_item.text()
+        
+        # Lấy thông tin lớp từ danh sách
+        class_info = None
+        if hasattr(self, 'all_classes_data'):
+            for cls in self.all_classes_data:
+                if cls.get("ma_lop") == ma_lop:
+                    class_info = cls
+                    break
+        
+        # Tải danh sách sinh viên của lớp
+        students_data = report_service.get_students_by_class(ma_lop)
+        self.view.populate_students_table(students_data, class_info)
+    
+    def handle_search_class(self):
+        """Tìm kiếm lớp học"""
+        keyword = self.view.search_class_input.text().lower()
+        
+        if not hasattr(self, 'all_classes_data'):
+            return
+        
+        if not keyword:
+            self.view.populate_classes_list(self.all_classes_data)
+            return
+        
+        filtered_data = []
+        for cls in self.all_classes_data:
+            ma_lop = (cls.get("ma_lop", "") or "").lower()
+            ten_lop = (cls.get("ten_lop", "") or "").lower()
+            ten_mon = (cls.get("ten_mon", "") or "").lower()
+            
+            if keyword in ma_lop or keyword in ten_lop or keyword in ten_mon:
+                filtered_data.append(cls)
+        
+        self.view.populate_classes_list(filtered_data)
 
     # ==========================================================
     # HÀM XỬ LÝ TÌM KIẾM

@@ -220,23 +220,141 @@ class ReportWindow(QWidget):
                 background-color: white;
             }
         """)
-        stats_layout = QVBoxLayout(stats_tab)
+        stats_layout = QHBoxLayout(stats_tab)
         stats_layout.setContentsMargins(15, 15, 15, 15)
-        stats_layout.setSpacing(10)
+        stats_layout.setSpacing(15)
         
-        (group_stats, 
-         self.table_stats, 
-         self.search_by_stats, 
-         self.search_input_stats,
-         self.btn_search_stats, 
-         self.btn_all_stats, 
-         self.btn_csv_stats) = self.create_table_section(
-            "Thống kê điểm danh theo sinh viên",
-            ["Mã SV", "Tên SV", "Mã Lớp", "Tên Môn", "Loại", "Tổng buổi", "Vắng", "Tổng tiết", "Tiết vắng", "Tỷ lệ vắng", "Trạng thái"],
-            color="#1E40AF"
-        )
+        # Bên trái: Danh sách lớp học
+        left_panel = QGroupBox("Danh sách lớp học")
+        left_panel.setFont(QFont("Arial", 11, QFont.Bold))
+        left_panel.setStyleSheet("""
+            QGroupBox {
+                border: 2px solid #D1D5DB;
+                background-color: #F9FAFB;
+                border-radius: 5px;
+                margin-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                color: #1E40AF;
+            }
+        """)
+        left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(10, 10, 10, 10)
         
-        stats_layout.addWidget(group_stats)
+        # Tìm kiếm lớp học
+        search_class_layout = QHBoxLayout()
+        self.search_class_input = QLineEdit()
+        self.search_class_input.setPlaceholderText("Tìm kiếm lớp học...")
+        self.search_class_input.setStyleSheet("padding: 5px; border: 1px solid #D1D5DB; border-radius: 4px;")
+        search_class_layout.addWidget(self.search_class_input)
+        left_layout.addLayout(search_class_layout)
+        
+        # Danh sách lớp học
+        self.list_classes = QTableWidget()
+        self.list_classes.setColumnCount(4)
+        self.list_classes.setHorizontalHeaderLabels(["Mã Lớp", "Tên Lớp", "Tổng SV", "Cấm thi"])
+        self.list_classes.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #9CA3AF;
+                gridline-color: #E0E0E0;
+            }
+            QHeaderView::section {
+                background-color: #F0F0F0;
+                color: #333333;
+                border: 1px solid #D1D5DB;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 4px;
+            }
+            QTableWidget::item:selected {
+                background-color: #C0DFFD;
+                color: black;
+            }
+        """)
+        self.list_classes.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.list_classes.setSelectionBehavior(QTableWidget.SelectRows)
+        self.list_classes.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.list_classes.setMaximumWidth(400)
+        left_layout.addWidget(self.list_classes)
+        
+        # Bên phải: Danh sách sinh viên của lớp đã chọn
+        right_panel = QGroupBox("Danh sách sinh viên")
+        right_panel.setFont(QFont("Arial", 11, QFont.Bold))
+        right_panel.setStyleSheet("""
+            QGroupBox {
+                border: 2px solid #D1D5DB;
+                background-color: #F9FAFB;
+                border-radius: 5px;
+                margin-top: 8px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                color: #1E40AF;
+            }
+        """)
+        right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # Label hiển thị lớp đang chọn
+        self.selected_class_label = QLabel("Vui lòng chọn một lớp học")
+        self.selected_class_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #1E40AF; padding: 5px;")
+        right_layout.addWidget(self.selected_class_label)
+        
+        # Bảng sinh viên
+        self.table_students = QTableWidget()
+        self.table_students.setColumnCount(8)
+        self.table_students.setHorizontalHeaderLabels(["Mã SV", "Tên SV", "Tổng buổi", "Vắng", "Tổng tiết", "Tiết vắng", "Tỷ lệ vắng", "Trạng thái"])
+        self.table_students.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #9CA3AF;
+                gridline-color: #E0E0E0;
+            }
+            QHeaderView::section {
+                background-color: #F0F0F0;
+                color: #333333;
+                border: 1px solid #D1D5DB;
+                padding: 5px;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 4px;
+            }
+            QTableWidget::item:selected {
+                background-color: #C0DFFD;
+                color: black;
+            }
+        """)
+        self.table_students.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table_students.setSelectionBehavior(QTableWidget.SelectRows)
+        self.table_students.setEditTriggers(QTableWidget.NoEditTriggers)
+        right_layout.addWidget(self.table_students)
+        
+        # Nút xuất CSV
+        btn_export_layout = QHBoxLayout()
+        self.btn_export_students = QPushButton("Xuất CSV")
+        self.btn_export_students.setStyleSheet("""
+            QPushButton {
+                background-color: #1E40AF;
+                color: white;
+                border-radius: 4px;
+                font-weight: bold;
+                padding: 4px 8px;
+            }
+            QPushButton:hover { background-color: #123072; }
+        """)
+        btn_export_layout.addStretch()
+        btn_export_layout.addWidget(self.btn_export_students)
+        right_layout.addLayout(btn_export_layout)
+        
+        stats_layout.addWidget(left_panel, 1)
+        stats_layout.addWidget(right_panel, 2)
         tab_widget.addTab(stats_tab, "📊 Thống kê điểm danh")
 
         # ===== FINAL LAYOUT =====
@@ -364,21 +482,49 @@ class ReportWindow(QWidget):
         
         table_widget.resizeColumnsToContents()
     
-    def populate_stats_table(self, data):
-        """Hiển thị dữ liệu thống kê với màu sắc (đỏ = cấm thi, xanh = đủ điều kiện)"""
-        self.table_stats.setRowCount(0)
+    def populate_classes_list(self, data):
+        """Hiển thị danh sách lớp học"""
+        self.list_classes.setRowCount(0)
         if not data:
             return
             
-        self.table_stats.setRowCount(len(data))
+        self.list_classes.setRowCount(len(data))
+        for row_index, row_dict in enumerate(data):
+            row_data = [
+                row_dict.get("ma_lop", ""),
+                row_dict.get("ten_lop", ""),
+                str(row_dict.get("tong_sv", 0)),
+                f"{row_dict.get('so_sv_cam_thi', 0)}/{row_dict.get('tong_sv', 0)}"
+            ]
+            
+            for col_index, item_str in enumerate(row_data):
+                cell_item = QTableWidgetItem(str(item_str))
+                cell_item.setFlags(cell_item.flags() & ~Qt.ItemIsEditable)
+                self.list_classes.setItem(row_index, col_index, cell_item)
+        
+        self.list_classes.resizeColumnsToContents()
+    
+    def populate_students_table(self, data, class_info=None):
+        """Hiển thị danh sách sinh viên với màu sắc (đỏ = cấm thi, xanh = đủ điều kiện)"""
+        self.table_students.setRowCount(0)
+        
+        if class_info:
+            self.selected_class_label.setText(
+                f"Lớp: {class_info.get('ma_lop', '')} - {class_info.get('ten_lop', '')} | "
+                f"Môn: {class_info.get('ten_mon', '')} ({class_info.get('so_tin_chi', 0)} tín chỉ)"
+            )
+        else:
+            self.selected_class_label.setText("Vui lòng chọn một lớp học")
+        
+        if not data:
+            return
+            
+        self.table_students.setRowCount(len(data))
         for row_index, row_dict in enumerate(data):
             # Tạo danh sách giá trị theo thứ tự cột
             row_data = [
                 row_dict.get("ma_sv", ""),
                 row_dict.get("ho_ten", ""),
-                row_dict.get("ma_lop", ""),
-                row_dict.get("ten_mon", ""),
-                row_dict.get("loai_mon", ""),
                 str(row_dict.get("tong_buoi", 0)),
                 str(row_dict.get("so_buoi_vang", 0)),
                 str(row_dict.get("tong_tiet", 0)),
@@ -394,10 +540,10 @@ class ReportWindow(QWidget):
             for col_index, item_str in enumerate(row_data):
                 cell_item = QTableWidgetItem(str(item_str))
                 cell_item.setFlags(cell_item.flags() & ~Qt.ItemIsEditable)
-                cell_item.setBackground(QtGui.QColor(bg_color))
-                self.table_stats.setItem(row_index, col_index, cell_item)
+                cell_item.setBackground(QColor(bg_color))
+                self.table_students.setItem(row_index, col_index, cell_item)
         
-        self.table_stats.resizeColumnsToContents()
+        self.table_students.resizeColumnsToContents()
 
     def update_stat_cards(self, stats_data):
         """Cập nhật 4 thẻ thống kê"""

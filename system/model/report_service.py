@@ -594,3 +594,215 @@ def get_student_attendance_statistics():
     finally:
         if conn:
             conn.close()
+
+def get_classes_list():
+    """
+    Lấy danh sách tất cả lớp học với thống kê tổng quan.
+    Trả về list các dict:
+    {
+        'ma_lop': ...,
+        'ten_lop': ...,
+        'ten_mon': ...,
+        'so_tin_chi': ...,
+        'tong_sv': ...,
+        'tong_buoi': ...,
+        'so_sv_cam_thi': ...,
+        'so_sv_du_dieu_kien': ...
+    }
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+
+        cursor = conn.cursor()
+
+        sql_query = """
+            SELECT 
+                l.MA_LOP,
+                l.TEN_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI,
+                COUNT(DISTINCT d.ID_SV) AS TongSV,
+                COUNT(DISTINCT b.ID_BUOI) AS TongBuoi
+            FROM LOPHOC l
+            JOIN MONHOC m ON l.ID_MON = m.ID_MON
+            LEFT JOIN DANGKY d ON l.ID_LOP = d.ID_LOP
+            LEFT JOIN BUOIHOC b ON l.ID_LOP = b.ID_LOP
+            GROUP BY 
+                l.MA_LOP,
+                l.TEN_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI
+            ORDER BY l.MA_LOP;
+        """
+
+        cursor.execute(sql_query)
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            ma_lop = row[0]
+            ten_lop = row[1]
+            ten_mon = row[2]
+            so_tin_chi = row[3] or 0
+            tong_sv = row[4] or 0
+            tong_buoi = row[5] or 0
+
+            # Tính số sinh viên cấm thi và đủ điều kiện
+            students_stats = get_students_by_class(ma_lop)
+            so_sv_cam_thi = sum(1 for s in students_stats if s.get("cam_thi", False))
+            so_sv_du_dieu_kien = len(students_stats) - so_sv_cam_thi
+
+            result.append({
+                "ma_lop": ma_lop,
+                "ten_lop": ten_lop or "",
+                "ten_mon": ten_mon or "",
+                "so_tin_chi": so_tin_chi,
+                "tong_sv": tong_sv,
+                "tong_buoi": tong_buoi,
+                "so_sv_cam_thi": so_sv_cam_thi,
+                "so_sv_du_dieu_kien": so_sv_du_dieu_kien
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"Lỗi khi lấy danh sách lớp học (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
+
+def get_students_by_class(ma_lop):
+    """
+    Lấy danh sách sinh viên của một lớp học với thống kê điểm danh.
+    
+    Trả về list các dict:
+    {
+        'ma_sv': ...,
+        'ho_ten': ...,
+        'ma_lop': ...,
+        'ten_mon': ...,
+        'so_tin_chi': ...,
+        'loai_mon': ...,
+        'tong_buoi': ...,
+        'so_buoi_vang': ...,
+        'tong_tiet': ...,
+        'so_tiet_vang': ...,
+        'ti_le_vang': ...,
+        'cam_thi': True/False,
+        'trang_thai': 'Cấm thi' hoặc 'Đủ điều kiện'
+    }
+    """
+    conn = None
+    try:
+        conn = get_db_connection()
+        if conn is None:
+            raise Exception("Không thể kết nối CSDL.")
+
+        cursor = conn.cursor()
+
+        sql_query = """
+            SELECT 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI,
+                COUNT(DISTINCT b.ID_BUOI) AS TongBuoi,
+                SUM(
+                    CASE 
+                        WHEN dd.TRANG_THAI = N'Vắng' THEN 1 
+                        ELSE 0 
+                    END
+                ) AS SoBuoiVang
+            FROM DANGKY d
+            JOIN SINHVIEN s ON d.ID_SV = s.ID_SV
+            JOIN LOPHOC l ON d.ID_LOP = l.ID_LOP
+            JOIN MONHOC m ON l.ID_MON = m.ID_MON
+            JOIN BUOIHOC b ON b.ID_LOP = l.ID_LOP
+            LEFT JOIN DIEMDANH dd 
+                ON dd.ID_BUOI = b.ID_BUOI 
+               AND dd.ID_SV = s.ID_SV
+            WHERE l.MA_LOP = ?
+            GROUP BY 
+                s.MA_SV,
+                s.HO_TEN,
+                l.MA_LOP,
+                m.TEN_MON,
+                m.SO_TIN_CHI
+            ORDER BY s.MA_SV;
+        """
+
+        cursor.execute(sql_query, (ma_lop,))
+        rows = cursor.fetchall()
+
+        result = []
+        for row in rows:
+            ma_sv = row[0]
+            ho_ten = row[1]
+            ma_lop_row = row[2]
+            ten_mon = row[3]
+            so_tin_chi = row[4] or 0
+            tong_buoi = row[5] or 0
+            so_buoi_vang = row[6] or 0
+
+            # Nếu chưa có lịch buổi học thì vẫn hiển thị nhưng không tính
+            if tong_buoi <= 0:
+                result.append({
+                    "ma_sv": ma_sv,
+                    "ho_ten": ho_ten,
+                    "ma_lop": ma_lop_row,
+                    "ten_mon": ten_mon,
+                    "so_tin_chi": so_tin_chi,
+                    "loai_mon": _get_subject_type_from_name(ten_mon),
+                    "tong_buoi": 0,
+                    "so_buoi_vang": 0,
+                    "tong_tiet": 0,
+                    "so_tiet_vang": 0,
+                    "ti_le_vang": 0.0,
+                    "cam_thi": False,
+                    "trang_thai": "Chưa có lịch học"
+                })
+                continue
+
+            # Xác định loại môn học và tính tổng số tiết
+            loai_mon = _get_subject_type_from_name(ten_mon)
+            tong_tiet_theo_tin_chi = _calculate_total_periods(so_tin_chi, loai_mon)
+            
+            # Tính số tiết thực tế dựa trên số buổi học (mỗi buổi = 3 tiết = 1 ca)
+            tong_tiet_thuc_te = tong_buoi * 3
+            so_tiet_vang = so_buoi_vang * 3
+            
+            # Sử dụng số tiết thực tế từ buổi học để tính tỷ lệ
+            tong_tiet = tong_tiet_thuc_te
+            ti_le_vang = float(so_tiet_vang) / float(tong_tiet) if tong_tiet > 0 else 0.0
+            cam_thi = ti_le_vang > 0.2  # 20%
+
+            result.append({
+                "ma_sv": ma_sv,
+                "ho_ten": ho_ten,
+                "ma_lop": ma_lop_row,
+                "ten_mon": ten_mon,
+                "so_tin_chi": so_tin_chi,
+                "loai_mon": loai_mon,
+                "tong_buoi": int(tong_buoi),
+                "so_buoi_vang": int(so_buoi_vang),
+                "tong_tiet": int(tong_tiet),
+                "tong_tiet_theo_tin_chi": int(tong_tiet_theo_tin_chi),
+                "so_tiet_vang": int(so_tiet_vang),
+                "ti_le_vang": ti_le_vang,
+                "cam_thi": cam_thi,
+                "trang_thai": "Cấm thi" if cam_thi else "Đủ điều kiện"
+            })
+
+        return result
+
+    except Exception as e:
+        print(f"Lỗi khi lấy danh sách sinh viên theo lớp (service): {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()
